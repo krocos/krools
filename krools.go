@@ -58,16 +58,13 @@ func (r *Rule) SetSalience(salience int) *Rule {
 func (r *Rule) Describe() string {
 	var b strings.Builder
 	if r.salience != 0 {
-		// nolint: gocritic // nothing to quote
 		b.WriteString(fmt.Sprintf("rule \"%s\" salience %d\n", r.name, r.salience))
 	} else {
-		// nolint: gocritic // nothing to quote
 		b.WriteString(fmt.Sprintf("rule \"%s\"\n", r.name))
 	}
 
 	if len(r.retracts) > 0 {
 		b.WriteString("\tretracts\n")
-		// nolint: gocritic // nothing to quote
 		b.WriteString(fmt.Sprintf("\t\t%s\n", fmt.Sprintf("\"%s\"", strings.Join(r.retracts, "\",\n\t\t\""))))
 	}
 
@@ -127,7 +124,6 @@ func (s *Set) Describe() string {
 		prefixed.WriteString(fmt.Sprintf("\t%s\n", scanner.Text()))
 	}
 
-	// nolint: gocritic // nothing to quote
 	return fmt.Sprintf("set \"%s\"\n\n%s", s.name, prefixed.String())
 }
 
@@ -268,4 +264,35 @@ func sortRulesConsiderSalience(rules []*Rule) {
 	slices.SortFunc(rules, func(a, b *Rule) int {
 		return cmp.Compare(a.salience, b.salience) * -1
 	})
+}
+
+type ActionSet struct {
+	actions []Action
+}
+
+func NewActionSet(actions ...Action) *ActionSet {
+	return &ActionSet{actions: actions}
+}
+
+func (s *ActionSet) Describe() string {
+	if len(s.actions) == 0 {
+		return "<no actions defined>"
+	}
+
+	list := make([]string, 0)
+	for _, action := range s.actions {
+		list = append(list, action.Describe())
+	}
+
+	return strings.Join(list, ";\n\t\t") + ";"
+}
+
+func (s *ActionSet) Execute(ctx context.Context, fact any) error {
+	for _, action := range s.actions {
+		if err := action.Execute(ctx, fact); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
