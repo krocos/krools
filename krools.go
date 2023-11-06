@@ -21,41 +21,41 @@ type Describer interface {
 	Describe() string
 }
 
-type Action interface {
-	Execute(ctx context.Context, fact any) error
+type Action[T any] interface {
+	Execute(ctx context.Context, fact T) error
 	Describer
 }
 
-type Satisfiable interface {
-	IsSatisfiedBy(ctx context.Context, candidate any) (bool, error)
+type Satisfiable[T any] interface {
+	IsSatisfiedBy(ctx context.Context, candidate T) (bool, error)
 	Describe() string
 }
 
-type Rule struct {
+type Rule[T any] struct {
 	name      string
 	salience  int
-	condition Satisfiable
-	action    Action
+	condition Satisfiable[T]
+	action    Action[T]
 	retracts  []string
 }
 
-func (r *Rule) Retracts(rules ...string) *Rule {
+func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	r.retracts = append(r.retracts, rules...)
 
 	return r
 }
 
-func NewRule(name string, condition Satisfiable, action Action) *Rule {
-	return &Rule{name: name, condition: condition, action: action}
+func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
+	return &Rule[T]{name: name, condition: condition, action: action}
 }
 
-func (r *Rule) SetSalience(salience int) *Rule {
+func (r *Rule[T]) SetSalience(salience int) *Rule[T] {
 	r.salience = salience
 
 	return r
 }
 
-func (r *Rule) Describe() string {
+func (r *Rule[T]) Describe() string {
 	var b strings.Builder
 	if r.salience != 0 {
 		b.WriteString(fmt.Sprintf("rule \"%s\" salience %d\n", r.name, r.salience))
@@ -76,36 +76,36 @@ func (r *Rule) Describe() string {
 	return b.String()
 }
 
-type Set struct {
+type Set[T any] struct {
 	name                       string
-	rules                      map[string]*Rule
+	rules                      map[string]*Rule[T]
 	conflictResolutionStrategy int
 	maxReevaluations           int
 }
 
-func NewSet(name string) *Set {
-	return &Set{
+func NewSet[T any](name string) *Set[T] {
+	return &Set[T]{
 		name:                       name,
-		rules:                      make(map[string]*Rule),
+		rules:                      make(map[string]*Rule[T]),
 		conflictResolutionStrategy: FireOnlyMostSalienceRule,
 		maxReevaluations:           256,
 	}
 }
 
-func (s *Set) Add(rule *Rule) *Set {
+func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
 	s.rules[rule.name] = rule
 
 	return s
 }
 
-func (s *Set) SetMaxReevaluations(v int) *Set {
+func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 	s.maxReevaluations = v
 
 	return s
 }
 
-func (s *Set) Describe() string {
-	rules := make([]*Rule, 0)
+func (s *Set[T]) Describe() string {
+	rules := make([]*Rule[T], 0)
 	for _, rule := range s.rules {
 		rules = append(rules, rule)
 	}
@@ -127,31 +127,31 @@ func (s *Set) Describe() string {
 	return fmt.Sprintf("set \"%s\"\n\n%s", s.name, prefixed.String())
 }
 
-func (s *Set) FireOnlyMostSalienceRule(ctx context.Context, fact any) error {
+func (s *Set[T]) FireOnlyMostSalienceRule(ctx context.Context, fact T) error {
 	s.conflictResolutionStrategy = FireOnlyMostSalienceRule
 
 	return s.fireRules(ctx, fact)
 }
 
-func (s *Set) FireAllApplicableOnce(ctx context.Context, fact any) error {
+func (s *Set[T]) FireAllApplicableOnce(ctx context.Context, fact T) error {
 	s.conflictResolutionStrategy = FireAllApplicableOnce
 
 	return s.fireRules(ctx, fact)
 }
 
-func (s *Set) FireMostSalienceAndReevaluate(ctx context.Context, fact any) error {
+func (s *Set[T]) FireMostSalienceAndReevaluate(ctx context.Context, fact T) error {
 	s.conflictResolutionStrategy = FireMostSalienceAndReevaluate
 
 	return s.fireRules(ctx, fact)
 }
 
-func (s *Set) FireAllApplicableAndReevaluate(ctx context.Context, fact any) error {
+func (s *Set[T]) FireAllApplicableAndReevaluate(ctx context.Context, fact T) error {
 	s.conflictResolutionStrategy = FireAllApplicableAndReevaluate
 
 	return s.fireRules(ctx, fact)
 }
 
-func (s *Set) fireRules(ctx context.Context, fact any) error {
+func (s *Set[T]) fireRules(ctx context.Context, fact T) error {
 	ret := new(retracting)
 
 	applicable, err := s.applicableRules(ctx, fact, ret)
@@ -159,7 +159,7 @@ func (s *Set) fireRules(ctx context.Context, fact any) error {
 		return err
 	}
 
-	sortRulesConsiderSalience(applicable)
+	sortRulesConsiderSalience[T](applicable)
 
 	switch s.conflictResolutionStrategy {
 	case FireOnlyMostSalienceRule:
@@ -225,8 +225,8 @@ func (r *retracting) IsRetracted(rule string) bool {
 	return false
 }
 
-func (s *Set) applicableRules(ctx context.Context, fact any, ret *retracting) ([]*Rule, error) {
-	var applicable []*Rule
+func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) ([]*Rule[T], error) {
+	var applicable []*Rule[T]
 
 	for _, rule := range s.rules {
 		if ret.IsRetracted(rule.name) {
@@ -246,7 +246,7 @@ func (s *Set) applicableRules(ctx context.Context, fact any, ret *retracting) ([
 	return applicable, nil
 }
 
-func (s *Set) executeAction(ctx context.Context, fact any, rule *Rule, ret *retracting) error {
+func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting) error {
 	if ret.IsRetracted(rule.name) {
 		return nil
 	}
@@ -260,21 +260,21 @@ func (s *Set) executeAction(ctx context.Context, fact any, rule *Rule, ret *retr
 	return nil
 }
 
-func sortRulesConsiderSalience(rules []*Rule) {
-	slices.SortFunc(rules, func(a, b *Rule) int {
+func sortRulesConsiderSalience[T any](rules []*Rule[T]) {
+	slices.SortFunc(rules, func(a, b *Rule[T]) int {
 		return cmp.Compare(a.salience, b.salience) * -1
 	})
 }
 
-type ActionSet struct {
-	actions []Action
+type ActionSet[T any] struct {
+	actions []Action[T]
 }
 
-func NewActionSet(actions ...Action) *ActionSet {
-	return &ActionSet{actions: actions}
+func NewActionSet[T any](actions ...Action[T]) *ActionSet[T] {
+	return &ActionSet[T]{actions: actions}
 }
 
-func (s *ActionSet) Describe() string {
+func (s *ActionSet[T]) Describe() string {
 	if len(s.actions) == 0 {
 		return "<no actions defined>"
 	}
@@ -287,7 +287,7 @@ func (s *ActionSet) Describe() string {
 	return strings.Join(list, ";\n\t\t") + ";"
 }
 
-func (s *ActionSet) Execute(ctx context.Context, fact any) error {
+func (s *ActionSet[T]) Execute(ctx context.Context, fact T) error {
 	for _, action := range s.actions {
 		if err := action.Execute(ctx, fact); err != nil {
 			return err

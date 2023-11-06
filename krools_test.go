@@ -21,8 +21,8 @@ func NewPriceGreaterThan(price int) *PriceGreaterThan {
 	return &PriceGreaterThan{price: price}
 }
 
-func (c *PriceGreaterThan) IsSatisfiedBy(ctx context.Context, candidate any) (bool, error) {
-	return candidate.(*Fact).Price > c.price, nil
+func (c *PriceGreaterThan) IsSatisfiedBy(ctx context.Context, candidate *Fact) (bool, error) {
+	return candidate.Price > c.price, nil
 }
 
 func (c *PriceGreaterThan) Describe() string {
@@ -31,8 +31,8 @@ func (c *PriceGreaterThan) Describe() string {
 
 type SetBigPriceAction struct{}
 
-func (s *SetBigPriceAction) Execute(ctx context.Context, fact any) error {
-	fact.(*Fact).Tax = 10
+func (s *SetBigPriceAction) Execute(ctx context.Context, fact *Fact) error {
+	fact.Tax = 10
 	return nil
 }
 
@@ -42,8 +42,8 @@ func (s *SetBigPriceAction) Describe() string {
 
 type SetLowPriceAction struct{}
 
-func (s *SetLowPriceAction) Execute(ctx context.Context, fact any) error {
-	fact.(*Fact).Tax = 5
+func (s *SetLowPriceAction) Execute(ctx context.Context, fact *Fact) error {
+	fact.Tax = 5
 	return nil
 }
 
@@ -60,10 +60,10 @@ func TestKrools(t *testing.T) {
 	bigPriceTaAction := new(SetBigPriceAction)
 	lowPriceTaAction := new(SetLowPriceAction)
 
-	set := krools.NewSet("Example set").
-		Add(krools.NewRule("Tax for big price", priceGreater100, bigPriceTaAction).
+	set := krools.NewSet[*Fact]("Example set").
+		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceTaAction).
 			Retracts("Tax for low price").SetSalience(1)).
-		Add(krools.NewRule("Tax for low price", priceGreater10, lowPriceTaAction))
+		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, lowPriceTaAction))
 
 	err := set.FireAllApplicableOnce(context.Background(), f)
 	if err != nil {
