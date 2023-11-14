@@ -39,7 +39,13 @@ type Rule[T any] struct {
 	retracts  []string
 }
 
+// Retracts add passed rule names to retract (to not fire in next and current
+// evaluation) if action of rule fired. If no names passed it add itself name.
 func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
+	if len(rules) == 0 {
+		rules = append(rules, r.name)
+	}
+
 	r.retracts = append(r.retracts, rules...)
 
 	return r
@@ -152,7 +158,7 @@ func (s *Set[T]) FireAllApplicableAndReevaluate(ctx context.Context, fact T) err
 }
 
 func (s *Set[T]) fireRules(ctx context.Context, fact T) error {
-	ret := new(retracting)
+	ret := newRetracting()
 
 	applicable, err := s.applicableRules(ctx, fact, ret)
 	if err != nil {
@@ -210,19 +216,23 @@ func (s *Set[T]) fireRules(ctx context.Context, fact T) error {
 }
 
 type retracting struct {
-	retracted []string
+	retracted map[string]struct{}
 }
 
-func (r *retracting) Add(rules ...string) { r.retracted = append(r.retracted, rules...) }
+func newRetracting() *retracting {
+	return &retracting{retracted: make(map[string]struct{})}
+}
+
+func (r *retracting) Add(rules ...string) {
+	for _, rule := range rules {
+		r.retracted[rule] = struct{}{}
+	}
+}
 
 func (r *retracting) IsRetracted(rule string) bool {
-	for _, ret := range r.retracted {
-		if ret == rule {
-			return true
-		}
-	}
+	_, ok := r.retracted[rule]
 
-	return false
+	return ok
 }
 
 func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) ([]*Rule[T], error) {
