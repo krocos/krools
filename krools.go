@@ -1,13 +1,11 @@
 package krools
 
 import (
-	"bufio"
 	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 )
 
 const (
@@ -17,18 +15,22 @@ const (
 	FireAllApplicableAndReevaluate
 )
 
-type Describer interface {
-	Describe() string
-}
-
 type Action[T any] interface {
 	Execute(ctx context.Context, fact T) error
-	Describer
 }
+
+type ActionFn[T any] func(ctx context.Context, fact T) error
+
+func (f ActionFn[T]) Execute(ctx context.Context, fact T) error { return f(ctx, fact) }
 
 type Satisfiable[T any] interface {
 	IsSatisfiedBy(ctx context.Context, candidate T) (bool, error)
-	Describe() string
+}
+
+type ConditionFn[T any] func(ctx context.Context, candidate T) (bool, error)
+
+func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, candidate T) (bool, error) {
+	return f(ctx, candidate)
 }
 
 type Rule[T any] struct {
@@ -37,6 +39,10 @@ type Rule[T any] struct {
 	condition Satisfiable[T]
 	action    Action[T]
 	retracts  []string
+}
+
+func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
+	return &Rule[T]{name: name, condition: condition, action: action}
 }
 
 // Retracts add passed rule names to retract (to not fire in next and current
@@ -51,35 +57,10 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	return r
 }
 
-func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
-	return &Rule[T]{name: name, condition: condition, action: action}
-}
-
 func (r *Rule[T]) SetSalience(salience int) *Rule[T] {
 	r.salience = salience
 
 	return r
-}
-
-func (r *Rule[T]) Describe() string {
-	var b strings.Builder
-	if r.salience != 0 {
-		b.WriteString(fmt.Sprintf("rule \"%s\" salience %d\n", r.name, r.salience))
-	} else {
-		b.WriteString(fmt.Sprintf("rule \"%s\"\n", r.name))
-	}
-
-	if len(r.retracts) > 0 {
-		b.WriteString("\tretracts\n")
-		b.WriteString(fmt.Sprintf("\t\t%s\n", fmt.Sprintf("\"%s\"", strings.Join(r.retracts, "\",\n\t\t\""))))
-	}
-
-	b.WriteString("\twhen\n")
-	b.WriteString(fmt.Sprintf("\t\t%s\n", r.condition.Describe()))
-	b.WriteString("\tthen\n")
-	b.WriteString(fmt.Sprintf("\t\t%s", r.action.Describe()))
-
-	return b.String()
 }
 
 type Set[T any] struct {
@@ -108,29 +89,6 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 	s.maxReevaluations = v
 
 	return s
-}
-
-func (s *Set[T]) Describe() string {
-	rules := make([]*Rule[T], 0)
-	for _, rule := range s.rules {
-		rules = append(rules, rule)
-	}
-
-	sortRulesConsiderSalience(rules)
-
-	list := make([]string, 0)
-	for _, rule := range rules {
-		list = append(list, rule.Describe())
-	}
-
-	var prefixed strings.Builder
-
-	scanner := bufio.NewScanner(strings.NewReader(strings.Join(list, "\n\n")))
-	for scanner.Scan() {
-		prefixed.WriteString(fmt.Sprintf("\t%s\n", scanner.Text()))
-	}
-
-	return fmt.Sprintf("set \"%s\"\n\n%s", s.name, prefixed.String())
 }
 
 func (s *Set[T]) FireOnlyMostSalienceRule(ctx context.Context, fact T) error {
@@ -282,19 +240,6 @@ type ActionSet[T any] struct {
 
 func NewActionSet[T any](actions ...Action[T]) *ActionSet[T] {
 	return &ActionSet[T]{actions: actions}
-}
-
-func (s *ActionSet[T]) Describe() string {
-	if len(s.actions) == 0 {
-		return "<no actions defined>"
-	}
-
-	list := make([]string, 0)
-	for _, action := range s.actions {
-		list = append(list, action.Describe())
-	}
-
-	return strings.Join(list, ";\n\t\t") + ";"
 }
 
 func (s *ActionSet[T]) Execute(ctx context.Context, fact T) error {
