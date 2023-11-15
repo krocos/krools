@@ -34,7 +34,9 @@ func (s *SetLowPriceAction) Execute(ctx context.Context, fact *Fact) error {
 func TestKrools(t *testing.T) {
 	f := &Fact{Price: 102}
 
-	priceGreater100 := NewPriceGreaterThan(100)
+	priceGreater100 := krools.ConditionFn[*Fact](func(ctx context.Context, candidate *Fact) (bool, error) {
+		return candidate.Price > 100, nil
+	})
 	priceGreater10 := NewPriceGreaterThan(10)
 
 	lowPriceTaAction := new(SetLowPriceAction)
@@ -46,7 +48,13 @@ func TestKrools(t *testing.T) {
 	set := krools.NewSet[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
 			Retracts("Tax for low price").SetSalience(1)).
-		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, lowPriceTaAction))
+		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionSet[*Fact](
+			lowPriceTaAction,
+			krools.ActionFn[*Fact](func(ctx context.Context, fact *Fact) error {
+				t.Log("set tax for low price")
+				return nil
+			}),
+		)))
 
 	err := set.FireAllApplicableOnce(context.Background(), f)
 	if err != nil {
