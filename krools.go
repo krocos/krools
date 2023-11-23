@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	FireOnlyMostSalienceRule = iota
-	FireAllApplicableOnce
-	FireMostSalienceAndReevaluate
-	FireAllApplicableAndReevaluate
+	fireOnlyMostSalienceRule = iota
+	fireAllApplicableOnce
+	fireMostSalienceAndReevaluate
+	fireAllApplicableAndReevaluate
 )
 
 type Action[T any] interface {
@@ -34,11 +34,12 @@ func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, candidate T) (bool, e
 }
 
 type Rule[T any] struct {
-	name      string
-	salience  int
-	condition Satisfiable[T]
-	action    Action[T]
-	retracts  []string
+	name          string
+	salience      int
+	condition     Satisfiable[T]
+	action        Action[T]
+	retracts      []string
+	flowCondition Satisfiable[T]
 }
 
 func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
@@ -63,6 +64,12 @@ func (r *Rule[T]) SetSalience(salience int) *Rule[T] {
 	return r
 }
 
+func (r *Rule[T]) SetFlowCondition(cond Satisfiable[T]) *Rule[T] {
+	r.flowCondition = cond
+
+	return r
+}
+
 type Set[T any] struct {
 	name                       string
 	rules                      map[string]*Rule[T]
@@ -74,7 +81,7 @@ func NewSet[T any](name string) *Set[T] {
 	return &Set[T]{
 		name:                       name,
 		rules:                      make(map[string]*Rule[T]),
-		conflictResolutionStrategy: FireOnlyMostSalienceRule,
+		conflictResolutionStrategy: fireOnlyMostSalienceRule,
 		maxReevaluations:           256,
 	}
 }
@@ -92,25 +99,25 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 }
 
 func (s *Set[T]) FireOnlyMostSalienceRule(ctx context.Context, fact T) error {
-	s.conflictResolutionStrategy = FireOnlyMostSalienceRule
+	s.conflictResolutionStrategy = fireOnlyMostSalienceRule
 
 	return s.fireRules(ctx, fact)
 }
 
 func (s *Set[T]) FireAllApplicableOnce(ctx context.Context, fact T) error {
-	s.conflictResolutionStrategy = FireAllApplicableOnce
+	s.conflictResolutionStrategy = fireAllApplicableOnce
 
 	return s.fireRules(ctx, fact)
 }
 
 func (s *Set[T]) FireMostSalienceAndReevaluate(ctx context.Context, fact T) error {
-	s.conflictResolutionStrategy = FireMostSalienceAndReevaluate
+	s.conflictResolutionStrategy = fireMostSalienceAndReevaluate
 
 	return s.fireRules(ctx, fact)
 }
 
 func (s *Set[T]) FireAllApplicableAndReevaluate(ctx context.Context, fact T) error {
-	s.conflictResolutionStrategy = FireAllApplicableAndReevaluate
+	s.conflictResolutionStrategy = fireAllApplicableAndReevaluate
 
 	return s.fireRules(ctx, fact)
 }
@@ -126,28 +133,28 @@ func (s *Set[T]) fireRules(ctx context.Context, fact T) error {
 	sortRulesConsiderSalience[T](applicable)
 
 	switch s.conflictResolutionStrategy {
-	case FireOnlyMostSalienceRule:
+	case fireOnlyMostSalienceRule:
 		if len(applicable) > 0 {
 			if err = s.executeAction(ctx, fact, applicable[0], ret); err != nil {
 				return err
 			}
 		}
-	case FireAllApplicableOnce:
+	case fireAllApplicableOnce:
 		for _, rule := range applicable {
 			if err = s.executeAction(ctx, fact, rule, ret); err != nil {
 				return err
 			}
 		}
-	case FireMostSalienceAndReevaluate, FireAllApplicableAndReevaluate:
+	case fireMostSalienceAndReevaluate, fireAllApplicableAndReevaluate:
 		var reevaluations int
 
 		for len(applicable) > 0 {
 			switch s.conflictResolutionStrategy {
-			case FireMostSalienceAndReevaluate:
+			case fireMostSalienceAndReevaluate:
 				if err = s.executeAction(ctx, fact, applicable[0], ret); err != nil {
 					return err
 				}
-			case FireAllApplicableAndReevaluate:
+			case fireAllApplicableAndReevaluate:
 				for _, rule := range applicable {
 					if err = s.executeAction(ctx, fact, rule, ret); err != nil {
 						return err
@@ -197,13 +204,29 @@ func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) (
 	var applicable []*Rule[T]
 
 	for _, rule := range s.rules {
+		if rule == nil {
+			return nil, fmt.Errorf("empty rule in set '%s'", s.name)
+		}
+
 		if ret.IsRetracted(rule.name) {
 			continue
 		}
 
+		if rule.condition == nil {
+			return nil, fmt.Errorf("no condition defined for rule '%s' of set '%s'", rule.name, s.name)
+		}
+
+		if rule.flowCondition != nil {
+			if in, err := rule.flowCondition.IsSatisfiedBy(ctx, fact); err != nil {
+				return nil, fmt.Errorf("check rule '%s' of set '%s' is in flow: %w", rule.name, s.name, err)
+			} else if !in {
+				continue
+			}
+		}
+
 		satisfied, err := rule.condition.IsSatisfiedBy(ctx, fact)
 		if err != nil {
-			return nil, fmt.Errorf("verify is condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
+			return nil, fmt.Errorf("verify that condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
 		}
 
 		if satisfied {
@@ -217,6 +240,10 @@ func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) (
 func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting) error {
 	if ret.IsRetracted(rule.name) {
 		return nil
+	}
+
+	if rule.action == nil {
+		return fmt.Errorf("no action defined for rule '%s' of set '%s'", rule.name, s.name)
 	}
 
 	if err := rule.action.Execute(ctx, fact); err != nil {
