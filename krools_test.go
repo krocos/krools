@@ -48,7 +48,7 @@ func TestKrools(t *testing.T) {
 	set := krools.NewSet[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
 			Retracts("Tax for low price").SetSalience(1)).
-		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionSet[*Fact](
+		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionStack[*Fact](
 			lowPriceTaAction,
 			krools.ActionFn[*Fact](func(ctx context.Context, fact *Fact) error {
 				t.Log("set tax for low price")
@@ -56,7 +56,7 @@ func TestKrools(t *testing.T) {
 			}),
 		)))
 
-	err := set.FireAllApplicableOnce(context.Background(), f)
+	err := set.FireAllRules(context.Background(), f)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
