@@ -47,13 +47,13 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 func (s *Set[T]) FireAllRules(ctx context.Context, fact T) error {
 	ret := newRetracting()
 
+	var reevaluations int
+
 	for _, agendaGroup := range s.agendaGroupsOrder {
 		applicable, err := s.applicableRules(ctx, agendaGroup, fact, ret)
 		if err != nil {
 			return err
 		}
-
-		var reevaluations int
 
 		for len(applicable) > 0 {
 			for _, rule := range applicable {
