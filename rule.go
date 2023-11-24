@@ -1,12 +1,13 @@
 package krools
 
 type Rule[T any] struct {
-	name        string
-	salience    int
-	condition   Satisfiable[T]
-	action      Action[T]
-	retracts    []string
-	agendaGroup string
+	name            string
+	salience        int
+	condition       Satisfiable[T]
+	action          Action[T]
+	retracts        []string
+	agendaGroup     string
+	activationGroup *string
 }
 
 const mainAgendaGroup = "MAIN"
@@ -33,6 +34,12 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 
 func (r *Rule[T]) AgendaGroup(agendaGroup string) *Rule[T] {
 	r.agendaGroup = agendaGroup
+
+	return r
+}
+
+func (r *Rule[T]) ActivationGroup(activationGroup string) *Rule[T] {
+	r.activationGroup = &activationGroup
 
 	return r
 }

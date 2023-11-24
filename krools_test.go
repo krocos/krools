@@ -105,3 +105,36 @@ func TestAgendaGroups(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestActivationGroup(t *testing.T) {
+	alwaysTrue := krools.ConditionFn[struct{}](func(ctx context.Context, candidate struct{}) (bool, error) {
+		return true, nil
+	})
+
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", alwaysTrue, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", alwaysTrue, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", alwaysTrue, appendAction("c"))
+
+	set := krools.NewSet[struct{}]("some").
+		Add(a.ActivationGroup("g")).
+		Add(b.ActivationGroup("g").Salience(1)).
+		Add(c)
+
+	err := set.FireAllRules(context.Background(), struct{}{})
+	if err != nil {
+		t.FailNow()
+	}
+
+	if !(order == "bc") {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
