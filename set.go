@@ -1,29 +1,39 @@
 package krools
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 )
 
 type Set[T any] struct {
-	name             string
-	rules            map[string]*Rule[T]
-	maxReevaluations int
+	name              string
+	agendaGroups      map[string]map[string]*Rule[T]
+	agendaGroupsOrder []string
+	maxReevaluations  int
 }
 
 func NewSet[T any](name string) *Set[T] {
 	return &Set[T]{
 		name:             name,
-		rules:            make(map[string]*Rule[T]),
+		agendaGroups:     make(map[string]map[string]*Rule[T]),
 		maxReevaluations: 256,
 	}
 }
 
 func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
-	s.rules[rule.name] = rule
+	if _, exists := s.agendaGroups[rule.agendaGroup]; !exists {
+		s.agendaGroups[rule.agendaGroup] = make(map[string]*Rule[T])
+	}
+
+	s.agendaGroups[rule.agendaGroup][rule.name] = rule
+	s.agendaGroupsOrder = uniq(append(s.agendaGroupsOrder, rule.agendaGroup))
+
+	return s
+}
+
+func (s *Set[T]) SetFocus(agendaGroups ...string) *Set[T] {
+	s.agendaGroupsOrder = uniq(append(agendaGroups, s.agendaGroupsOrder...))
 
 	return s
 }
@@ -37,38 +47,40 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 func (s *Set[T]) FireAllRules(ctx context.Context, fact T) error {
 	ret := newRetracting()
 
-	applicable, err := s.applicableRules(ctx, fact, ret)
-	if err != nil {
-		return err
-	}
-
-	var reevaluations int
-
-	for len(applicable) > 0 {
-		for _, rule := range applicable {
-			if err = s.executeAction(ctx, fact, rule, ret); err != nil {
-				return err
-			}
-		}
-
-		applicable, err = s.applicableRules(ctx, fact, ret)
+	for _, agendaGroup := range s.agendaGroupsOrder {
+		applicable, err := s.applicableRules(ctx, agendaGroup, fact, ret)
 		if err != nil {
 			return err
 		}
 
-		reevaluations++
-		if reevaluations > s.maxReevaluations {
-			return errors.New("too much reevaluations")
+		var reevaluations int
+
+		for len(applicable) > 0 {
+			for _, rule := range applicable {
+				if err = s.executeAction(ctx, fact, rule, ret); err != nil {
+					return err
+				}
+			}
+
+			applicable, err = s.applicableRules(ctx, agendaGroup, fact, ret)
+			if err != nil {
+				return err
+			}
+
+			reevaluations++
+			if reevaluations > s.maxReevaluations {
+				return errors.New("too much reevaluations")
+			}
 		}
 	}
 
 	return nil
 }
 
-func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) ([]*Rule[T], error) {
+func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T, ret *retracting) ([]*Rule[T], error) {
 	var applicable []*Rule[T]
 
-	for _, rule := range s.rules {
+	for _, rule := range s.agendaGroups[agendaGroup] {
 		if ret.isRetracted(rule.name) {
 			continue
 		}
@@ -100,10 +112,4 @@ func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *
 	ret.add(rule.retracts...)
 
 	return nil
-}
-
-func sortRulesConsiderSalience[T any](rules []*Rule[T]) {
-	slices.SortFunc(rules, func(a, b *Rule[T]) int {
-		return cmp.Compare(a.salience, b.salience) * -1
-	})
 }

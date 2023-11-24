@@ -47,7 +47,7 @@ func TestKrools(t *testing.T) {
 	})
 	set := krools.NewSet[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
-			Retracts("Tax for low price").SetSalience(1)).
+			Retracts("Tax for low price").Salience(1)).
 		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionStack[*Fact](
 			lowPriceTaAction,
 			krools.ActionFn[*Fact](func(ctx context.Context, fact *Fact) error {
@@ -63,5 +63,45 @@ func TestKrools(t *testing.T) {
 
 	if f.Tax != 10 {
 		t.Error("f.Tax != 10")
+	}
+}
+
+func TestAgendaGroups(t *testing.T) {
+	alwaysTrue := krools.ConditionFn[struct{}](func(ctx context.Context, candidate struct{}) (bool, error) {
+		return true, nil
+	})
+
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", alwaysTrue, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", alwaysTrue, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", alwaysTrue, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", alwaysTrue, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", alwaysTrue, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", alwaysTrue, appendAction("f"))
+
+	set := krools.NewSet[struct{}]("some").
+		SetFocus("first", "groupThatDoesNotExists", "second").
+		Add(a.Salience(2)).
+		Add(b.Salience(1)).
+		Add(c.AgendaGroup("second")).
+		Add(d.Salience(1).AgendaGroup("second")).
+		Add(e.AgendaGroup("first")).
+		Add(f.AgendaGroup("first"))
+
+	err := set.FireAllRules(context.Background(), struct{}{})
+	if err != nil {
+		t.FailNow()
+	}
+
+	if !(order == "fedcab" || order == "efdcab") {
+		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }

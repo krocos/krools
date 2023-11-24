@@ -1,7 +1,9 @@
 package krools
 
 import (
+	"cmp"
 	"context"
+	"slices"
 )
 
 type (
@@ -21,4 +23,38 @@ type ConditionFn[T any] func(ctx context.Context, candidate T) (bool, error)
 
 func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, candidate T) (bool, error) {
 	return f(ctx, candidate)
+}
+
+func sortRulesConsiderSalience[T any](rules []*Rule[T]) {
+	slices.SortFunc(rules, func(a, b *Rule[T]) int {
+		return cmp.Compare(a.salience, b.salience) * -1
+	})
+}
+
+func uniq[T comparable](collection []T) []T {
+	result := make([]T, 0, len(collection))
+	seen := make(map[T]struct{}, len(collection))
+
+	for _, item := range collection {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+
+	return result
+}
+
+func reject(collection []string, value string) []string {
+	result := make([]string, 0)
+
+	for _, item := range collection {
+		if item != value {
+			result = append(result, item)
+		}
+	}
+
+	return result
 }
