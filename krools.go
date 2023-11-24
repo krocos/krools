@@ -34,12 +34,11 @@ func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, candidate T) (bool, e
 }
 
 type Rule[T any] struct {
-	name          string
-	salience      int
-	condition     Satisfiable[T]
-	action        Action[T]
-	retracts      []string
-	flowCondition Satisfiable[T]
+	name      string
+	salience  int
+	condition Satisfiable[T]
+	action    Action[T]
+	retracts  []string
 }
 
 func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
@@ -60,12 +59,6 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 
 func (r *Rule[T]) SetSalience(salience int) *Rule[T] {
 	r.salience = salience
-
-	return r
-}
-
-func (r *Rule[T]) SetFlowCondition(cond Satisfiable[T]) *Rule[T] {
-	r.flowCondition = cond
 
 	return r
 }
@@ -214,14 +207,6 @@ func (s *Set[T]) applicableRules(ctx context.Context, fact T, ret *retracting) (
 
 		if rule.condition == nil {
 			return nil, fmt.Errorf("no condition defined for rule '%s' of set '%s'", rule.name, s.name)
-		}
-
-		if rule.flowCondition != nil {
-			if in, err := rule.flowCondition.IsSatisfiedBy(ctx, fact); err != nil {
-				return nil, fmt.Errorf("check rule '%s' of set '%s' is in flow: %w", rule.name, s.name, err)
-			} else if !in {
-				continue
-			}
 		}
 
 		satisfied, err := rule.condition.IsSatisfiedBy(ctx, fact)
