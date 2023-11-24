@@ -53,8 +53,25 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	}
 
 	r.retracts = append(r.retracts, rules...)
+	r.retracts = uniq(r.retracts)
 
 	return r
+}
+
+func uniq[T comparable](collection []T) []T {
+	result := make([]T, 0, len(collection))
+	seen := make(map[T]struct{}, len(collection))
+
+	for _, item := range collection {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+
+	return result
 }
 
 func (r *Rule[T]) SetSalience(salience int) *Rule[T] {
