@@ -51,6 +51,7 @@ func (c *flowController[T]) unitsRuleNames(units ...string) []string {
 
 func (c *flowController[T]) setFocus(units ...string) {
 	c.unitsOrder = uniq(append(units, c.unitsOrder...))
+
 	if len(units) > 0 {
 		c.resetPos = true
 	}
