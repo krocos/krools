@@ -142,3 +142,32 @@ func TestActivationGroup(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestEmptyCondition(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+
+	set := krools.NewSet[struct{}]("some").
+		Add(a).
+		Add(b).
+		Add(c)
+
+	err := set.FireAllRules(context.Background(), struct{}{})
+	if err != nil {
+		t.FailNow()
+	}
+
+	if order != "abc" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}

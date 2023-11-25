@@ -103,9 +103,16 @@ func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T
 			continue
 		}
 
-		satisfied, err := rule.condition.IsSatisfiedBy(ctx, fact)
-		if err != nil {
-			return nil, fmt.Errorf("verify that condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
+		var satisfied bool
+
+		if rule.condition != nil {
+			var err error
+			satisfied, err = rule.condition.IsSatisfiedBy(ctx, fact)
+			if err != nil {
+				return nil, fmt.Errorf("verify that condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
+			}
+		} else {
+			satisfied = true
 		}
 
 		if satisfied {
