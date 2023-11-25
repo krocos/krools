@@ -208,3 +208,50 @@ func TestRuleFilters(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestFlow(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+
+	set := krools.NewSet[struct{}]("some").
+		SetFocus(
+			"first",
+			"second",
+			"third",
+		).
+		SetDeactivatedUnits(
+			"second",
+			"first",
+			"optional",
+		).
+		Add(a.Unit("third")).
+		Add(b.Unit("third").ActivateUnits("optional")).
+		Add(c.Unit("second")).
+		Add(d.Unit("second").ActivateUnits("first").SetFocus("first")).
+		Add(e.Unit("first").Salience(-1)).
+		Add(f.Unit("first")).
+		Add(g.Unit("optional").ActivateUnits("second").SetFocus("second"))
+
+	err := set.FireAllRules(context.Background(), struct{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "abgcdfe" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}

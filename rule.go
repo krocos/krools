@@ -8,6 +8,10 @@ type Rule[T any] struct {
 	retracts       []string
 	unit           string
 	activationUnit *string
+
+	deactivateUnits []string
+	activateUnits   []string
+	focusUnits      []string
 }
 
 const mainUnit = "MAIN"
@@ -40,6 +44,24 @@ func (r *Rule[T]) Unit(unit string) *Rule[T] {
 
 func (r *Rule[T]) ActivationUnit(activationUnit string) *Rule[T] {
 	r.activationUnit = &activationUnit
+
+	return r
+}
+
+func (r *Rule[T]) DeactivateUnits(units ...string) *Rule[T] {
+	r.deactivateUnits = uniq(append(r.deactivateUnits, units...))
+
+	return r
+}
+
+func (r *Rule[T]) ActivateUnits(units ...string) *Rule[T] {
+	r.activateUnits = uniq(append(r.activateUnits, units...))
+
+	return r
+}
+
+func (r *Rule[T]) SetFocus(units ...string) *Rule[T] {
+	r.focusUnits = uniq(append(r.focusUnits, units...))
 
 	return r
 }

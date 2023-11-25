@@ -14,6 +14,12 @@ func (r *retracting) add(rules ...string) {
 	}
 }
 
+func (r *retracting) reject(rules ...string) {
+	for _, rule := range rules {
+		delete(r.retracted, rule)
+	}
+}
+
 func (r *retracting) isRetracted(rule string) bool {
 	_, ok := r.retracted[rule]
 

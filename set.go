@@ -12,6 +12,7 @@ type Set[T any] struct {
 	units            map[string][]*Rule[T]
 	unitsOrder       []string
 	activationUnits  map[string][]*Rule[T]
+	deactivatedUnits []string
 	maxReevaluations int
 }
 
@@ -69,6 +70,12 @@ func (s *Set[T]) SetFocus(units ...string) *Set[T] {
 	return s
 }
 
+func (s *Set[T]) SetDeactivatedUnits(units ...string) *Set[T] {
+	s.deactivatedUnits = uniq(append(units, s.deactivatedUnits...))
+
+	return s
+}
+
 func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 	s.maxReevaluations = v
 
@@ -77,23 +84,24 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 
 func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
 	ret := newRetracting()
+	flow := newFlowController[T](ret, s.units, s.unitsOrder, s.deactivatedUnits)
 
 	var reevaluations int
 
-	for _, unit := range s.unitsOrder {
-		applicable, err := s.applicableRules(ctx, unit, fact, ret, ruleFilters...)
+	for flow.more() {
+		applicable, err := s.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
 		if err != nil {
 			return err
 		}
 
 		for len(applicable) > 0 {
 			for _, rule := range applicable {
-				if err = s.executeAction(ctx, fact, rule, ret); err != nil {
+				if err = s.executeAction(ctx, fact, rule, ret, flow); err != nil {
 					return err
 				}
 			}
 
-			applicable, err = s.applicableRules(ctx, unit, fact, ret, ruleFilters...)
+			applicable, err = s.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
 			if err != nil {
 				return err
 			}
@@ -108,11 +116,17 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisf
 	return nil
 }
 
-func (s *Set[T]) applicableRules(ctx context.Context, unit string, fact T, ret *retracting, filters ...Satisfiable[*Rule[T]]) ([]*Rule[T], error) {
+func (s *Set[T]) applicableRules(
+	ctx context.Context,
+	rules []*Rule[T],
+	fact T,
+	ret *retracting,
+	filters ...Satisfiable[*Rule[T]],
+) ([]*Rule[T], error) {
 	var applicable []*Rule[T]
 
 loop:
-	for _, rule := range s.units[unit] {
+	for _, rule := range rules {
 		if ret.isRetracted(rule.name) {
 			continue
 		}
@@ -148,7 +162,7 @@ loop:
 	return applicable, nil
 }
 
-func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting) error {
+func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
 	if ret.isRetracted(rule.name) {
 		return nil
 	}
@@ -158,6 +172,9 @@ func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *
 	}
 
 	ret.add(rule.retracts...)
+	flow.deactivateUnits(rule.deactivateUnits...)
+	flow.activateUnits(rule.activateUnits...)
+	flow.setFocus(rule.focusUnits...)
 
 	if rule.activationUnit != nil {
 		var names []string
