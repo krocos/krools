@@ -16,7 +16,7 @@ type KnowledgeBase[T any] struct {
 	maxReevaluations int
 }
 
-func NewKnowledge[T any](name string) *KnowledgeBase[T] {
+func NewKnowledgeBase[T any](name string) *KnowledgeBase[T] {
 	return &KnowledgeBase[T]{
 		name:             name,
 		units:            make(map[string][]*Rule[T]),
@@ -37,77 +37,77 @@ func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
 	})
 }
 
-func (s *KnowledgeBase[T]) Add(rule *Rule[T]) *KnowledgeBase[T] {
+func (k *KnowledgeBase[T]) Add(rule *Rule[T]) *KnowledgeBase[T] {
 	var units []*Rule[T]
 
-	for _, existing := range s.units[rule.unit] {
+	for _, existing := range k.units[rule.unit] {
 		if existing.name != rule.name {
 			units = append(units, existing)
 		}
 	}
 
-	s.units[rule.unit] = append(units, rule)
-	s.unitsOrder = uniq(append(s.unitsOrder, rule.unit))
+	k.units[rule.unit] = append(units, rule)
+	k.unitsOrder = uniq(append(k.unitsOrder, rule.unit))
 
 	if rule.activationUnit != nil {
 		var activationUnits []*Rule[T]
 
-		for _, existing := range s.activationUnits[*rule.activationUnit] {
+		for _, existing := range k.activationUnits[*rule.activationUnit] {
 			if existing.name != rule.name {
 				activationUnits = append(activationUnits, existing)
 			}
 		}
 
-		s.activationUnits[*rule.activationUnit] = append(activationUnits, rule)
+		k.activationUnits[*rule.activationUnit] = append(activationUnits, rule)
 	}
 
-	return s
+	return k
 }
 
-func (s *KnowledgeBase[T]) SetFocus(units ...string) *KnowledgeBase[T] {
-	s.unitsOrder = uniq(append(units, s.unitsOrder...))
+func (k *KnowledgeBase[T]) SetFocus(units ...string) *KnowledgeBase[T] {
+	k.unitsOrder = uniq(append(units, k.unitsOrder...))
 
-	return s
+	return k
 }
 
-func (s *KnowledgeBase[T]) SetDeactivatedUnits(units ...string) *KnowledgeBase[T] {
-	s.deactivatedUnits = uniq(append(units, s.deactivatedUnits...))
+func (k *KnowledgeBase[T]) SetDeactivatedUnits(units ...string) *KnowledgeBase[T] {
+	k.deactivatedUnits = uniq(append(units, k.deactivatedUnits...))
 
-	return s
+	return k
 }
 
-func (s *KnowledgeBase[T]) SetMaxReevaluations(v int) *KnowledgeBase[T] {
-	s.maxReevaluations = v
+func (k *KnowledgeBase[T]) SetMaxReevaluations(v int) *KnowledgeBase[T] {
+	k.maxReevaluations = v
 
-	return s
+	return k
 }
 
-func (s *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
+func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
 	ret := newRetracting()
-	flow := newFlowController[T](ret, s.units, s.unitsOrder, s.deactivatedUnits)
+	flow := newFlowController[T](ret, k.units, k.unitsOrder, k.deactivatedUnits)
 
 	var reevaluations int
 
 	for flow.more() {
-		applicable, err := s.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
+		applicable, err := k.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
 		if err != nil {
 			return err
 		}
 
 		for len(applicable) > 0 {
 			for _, rule := range applicable {
-				if err = s.executeAction(ctx, fact, rule, ret, flow); err != nil {
+				if err = k.executeAction(ctx, fact, rule, ret, flow); err != nil {
 					return err
 				}
 			}
 
-			applicable, err = s.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
+			applicable, err = k.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
 			if err != nil {
 				return err
 			}
 
 			reevaluations++
-			if reevaluations > s.maxReevaluations {
+			if reevaluations > k.maxReevaluations {
 				return errors.New("too much reevaluations")
 			}
 		}
@@ -116,7 +116,7 @@ func (s *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters
 	return nil
 }
 
-func (s *KnowledgeBase[T]) applicableRules(
+func (k *KnowledgeBase[T]) applicableRules(
 	ctx context.Context,
 	rules []*Rule[T],
 	fact T,
@@ -134,7 +134,7 @@ loop:
 		for i, filter := range filters {
 			ok, err := filter.IsSatisfiedBy(ctx, rule)
 			if err != nil {
-				return nil, fmt.Errorf("verify that rule '%s' of knowledge base '%s' is satisfies filter %d: %w", rule.name, s.name, i, err)
+				return nil, fmt.Errorf("verify that rule '%s' of knowledge base '%s' is satisfies filter %d: %w", rule.name, k.name, i, err)
 			}
 
 			if !ok {
@@ -148,7 +148,7 @@ loop:
 			var err error
 			satisfied, err = rule.condition.IsSatisfiedBy(ctx, fact)
 			if err != nil {
-				return nil, fmt.Errorf("verify that condition of rule '%s' of knowledge base '%s' is satisfied by fact: %w", rule.name, s.name, err)
+				return nil, fmt.Errorf("verify that condition of rule '%s' of knowledge base '%s' is satisfied by fact: %w", rule.name, k.name, err)
 			}
 		}
 
@@ -162,13 +162,13 @@ loop:
 	return applicable, nil
 }
 
-func (s *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
+func (k *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
 	if ret.isRetracted(rule.name) {
 		return nil
 	}
 
 	if err := rule.action.Execute(ctx, fact); err != nil {
-		return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, s.name, err)
+		return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, k.name, err)
 	}
 
 	ret.add(rule.retracts...)
@@ -179,7 +179,7 @@ func (s *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule
 	if rule.activationUnit != nil {
 		var names []string
 
-		for _, r := range s.activationUnits[*rule.activationUnit] {
+		for _, r := range k.activationUnits[*rule.activationUnit] {
 			names = append(names, r.name)
 		}
 

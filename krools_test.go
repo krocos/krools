@@ -45,7 +45,7 @@ func TestKrools(t *testing.T) {
 		fact.Tax = 10
 		return nil
 	})
-	k := krools.NewKnowledge[*Fact]("Example set").
+	k := krools.NewKnowledgeBase[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
 			Retracts("Tax for low price").Salience(1)).
 		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionStack[*Fact](
@@ -87,7 +87,7 @@ func TestUnit(t *testing.T) {
 	e := krools.NewRule[struct{}]("e", alwaysTrue, appendAction("e"))
 	f := krools.NewRule[struct{}]("f", alwaysTrue, appendAction("f"))
 
-	k := krools.NewKnowledge[struct{}]("some").
+	k := krools.NewKnowledgeBase[struct{}]("some").
 		SetFocus(
 			"first",
 			"groupThatDoesNotExists",
@@ -128,7 +128,7 @@ func TestActivationUnit(t *testing.T) {
 	b := krools.NewRule[struct{}]("b", alwaysTrue, appendAction("b"))
 	c := krools.NewRule[struct{}]("c", alwaysTrue, appendAction("c"))
 
-	k := krools.NewKnowledge[struct{}]("some").
+	k := krools.NewKnowledgeBase[struct{}]("some").
 		Add(a.ActivationUnit("g")).
 		Add(b.ActivationUnit("g").Salience(1)).
 		Add(c)
@@ -157,7 +157,7 @@ func TestEmptyCondition(t *testing.T) {
 	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
 	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
 
-	k := krools.NewKnowledge[struct{}]("some").
+	k := krools.NewKnowledgeBase[struct{}]("some").
 		Add(a).
 		Add(b).
 		Add(c)
@@ -187,7 +187,7 @@ func TestRuleFilters(t *testing.T) {
 	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
 	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
 
-	k := krools.NewKnowledge[struct{}]("some").
+	k := krools.NewKnowledgeBase[struct{}]("some").
 		Add(a).
 		Add(b).
 		Add(c).
@@ -227,7 +227,7 @@ func TestFlow(t *testing.T) {
 	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
 	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
 
-	k := krools.NewKnowledge[struct{}]("some").
+	k := krools.NewKnowledgeBase[struct{}]("some").
 		SetFocus(
 			"first",
 			"second",
