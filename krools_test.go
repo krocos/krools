@@ -45,7 +45,7 @@ func TestKrools(t *testing.T) {
 		fact.Tax = 10
 		return nil
 	})
-	set := krools.NewSet[*Fact]("Example set").
+	k := krools.NewKnowledge[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
 			Retracts("Tax for low price").Salience(1)).
 		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionStack[*Fact](
@@ -56,7 +56,7 @@ func TestKrools(t *testing.T) {
 			}),
 		)))
 
-	err := set.FireAllRules(context.Background(), f)
+	err := k.FireAllRules(context.Background(), f)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestUnit(t *testing.T) {
 	e := krools.NewRule[struct{}]("e", alwaysTrue, appendAction("e"))
 	f := krools.NewRule[struct{}]("f", alwaysTrue, appendAction("f"))
 
-	set := krools.NewSet[struct{}]("some").
+	k := krools.NewKnowledge[struct{}]("some").
 		SetFocus(
 			"first",
 			"groupThatDoesNotExists",
@@ -100,7 +100,7 @@ func TestUnit(t *testing.T) {
 		Add(e.Unit("first")).
 		Add(f.Unit("first"))
 
-	err := set.FireAllRules(context.Background(), struct{}{})
+	err := k.FireAllRules(context.Background(), struct{}{})
 	if err != nil {
 		t.FailNow()
 	}
@@ -128,12 +128,12 @@ func TestActivationUnit(t *testing.T) {
 	b := krools.NewRule[struct{}]("b", alwaysTrue, appendAction("b"))
 	c := krools.NewRule[struct{}]("c", alwaysTrue, appendAction("c"))
 
-	set := krools.NewSet[struct{}]("some").
+	k := krools.NewKnowledge[struct{}]("some").
 		Add(a.ActivationUnit("g")).
 		Add(b.ActivationUnit("g").Salience(1)).
 		Add(c)
 
-	err := set.FireAllRules(context.Background(), struct{}{})
+	err := k.FireAllRules(context.Background(), struct{}{})
 	if err != nil {
 		t.FailNow()
 	}
@@ -157,12 +157,12 @@ func TestEmptyCondition(t *testing.T) {
 	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
 	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
 
-	set := krools.NewSet[struct{}]("some").
+	k := krools.NewKnowledge[struct{}]("some").
 		Add(a).
 		Add(b).
 		Add(c)
 
-	err := set.FireAllRules(context.Background(), struct{}{})
+	err := k.FireAllRules(context.Background(), struct{}{})
 	if err != nil {
 		t.FailNow()
 	}
@@ -187,13 +187,13 @@ func TestRuleFilters(t *testing.T) {
 	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
 	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
 
-	set := krools.NewSet[struct{}]("some").
+	k := krools.NewKnowledge[struct{}]("some").
 		Add(a).
 		Add(b).
 		Add(c).
 		Add(d)
 
-	err := set.FireAllRules(
+	err := k.FireAllRules(
 		context.Background(),
 		struct{}{},
 		krools.RuleNameMustNotContains[struct{}]("b"),
@@ -227,7 +227,7 @@ func TestFlow(t *testing.T) {
 	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
 	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
 
-	set := krools.NewSet[struct{}]("some").
+	k := krools.NewKnowledge[struct{}]("some").
 		SetFocus(
 			"first",
 			"second",
@@ -246,7 +246,7 @@ func TestFlow(t *testing.T) {
 		Add(f.Unit("first")).
 		Add(g.Unit("optional").ActivateUnits("second").SetFocus("second"))
 
-	err := set.FireAllRules(context.Background(), struct{}{})
+	err := k.FireAllRules(context.Background(), struct{}{})
 	if err != nil {
 		t.Fatal(err)
 	}

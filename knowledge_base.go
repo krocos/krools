@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-type Set[T any] struct {
+type KnowledgeBase[T any] struct {
 	name             string
 	units            map[string][]*Rule[T]
 	unitsOrder       []string
@@ -16,8 +16,8 @@ type Set[T any] struct {
 	maxReevaluations int
 }
 
-func NewSet[T any](name string) *Set[T] {
-	return &Set[T]{
+func NewKnowledge[T any](name string) *KnowledgeBase[T] {
+	return &KnowledgeBase[T]{
 		name:             name,
 		units:            make(map[string][]*Rule[T]),
 		activationUnits:  make(map[string][]*Rule[T]),
@@ -37,7 +37,7 @@ func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
 	})
 }
 
-func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
+func (s *KnowledgeBase[T]) Add(rule *Rule[T]) *KnowledgeBase[T] {
 	var units []*Rule[T]
 
 	for _, existing := range s.units[rule.unit] {
@@ -64,25 +64,25 @@ func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
 	return s
 }
 
-func (s *Set[T]) SetFocus(units ...string) *Set[T] {
+func (s *KnowledgeBase[T]) SetFocus(units ...string) *KnowledgeBase[T] {
 	s.unitsOrder = uniq(append(units, s.unitsOrder...))
 
 	return s
 }
 
-func (s *Set[T]) SetDeactivatedUnits(units ...string) *Set[T] {
+func (s *KnowledgeBase[T]) SetDeactivatedUnits(units ...string) *KnowledgeBase[T] {
 	s.deactivatedUnits = uniq(append(units, s.deactivatedUnits...))
 
 	return s
 }
 
-func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
+func (s *KnowledgeBase[T]) SetMaxReevaluations(v int) *KnowledgeBase[T] {
 	s.maxReevaluations = v
 
 	return s
 }
 
-func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
+func (s *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
 	ret := newRetracting()
 	flow := newFlowController[T](ret, s.units, s.unitsOrder, s.deactivatedUnits)
 
@@ -116,7 +116,7 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisf
 	return nil
 }
 
-func (s *Set[T]) applicableRules(
+func (s *KnowledgeBase[T]) applicableRules(
 	ctx context.Context,
 	rules []*Rule[T],
 	fact T,
@@ -162,7 +162,7 @@ loop:
 	return applicable, nil
 }
 
-func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
+func (s *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
 	if ret.isRetracted(rule.name) {
 		return nil
 	}
