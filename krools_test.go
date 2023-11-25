@@ -66,7 +66,7 @@ func TestKrools(t *testing.T) {
 	}
 }
 
-func TestAgendaGroups(t *testing.T) {
+func TestUnit(t *testing.T) {
 	alwaysTrue := krools.ConditionFn[struct{}](func(ctx context.Context, candidate struct{}) (bool, error) {
 		return true, nil
 	})
@@ -95,10 +95,10 @@ func TestAgendaGroups(t *testing.T) {
 		).
 		Add(a.Salience(2)).
 		Add(b.Salience(1)).
-		Add(c.AgendaGroup("second")).
-		Add(d.Salience(1).AgendaGroup("second")).
-		Add(e.AgendaGroup("first")).
-		Add(f.AgendaGroup("first"))
+		Add(c.Unit("second")).
+		Add(d.Salience(1).Unit("second")).
+		Add(e.Unit("first")).
+		Add(f.Unit("first"))
 
 	err := set.FireAllRules(context.Background(), struct{}{})
 	if err != nil {
@@ -110,7 +110,7 @@ func TestAgendaGroups(t *testing.T) {
 	}
 }
 
-func TestActivationGroup(t *testing.T) {
+func TestActivationUnit(t *testing.T) {
 	alwaysTrue := krools.ConditionFn[struct{}](func(ctx context.Context, candidate struct{}) (bool, error) {
 		return true, nil
 	})
@@ -129,8 +129,8 @@ func TestActivationGroup(t *testing.T) {
 	c := krools.NewRule[struct{}]("c", alwaysTrue, appendAction("c"))
 
 	set := krools.NewSet[struct{}]("some").
-		Add(a.ActivationGroup("g")).
-		Add(b.ActivationGroup("g").Salience(1)).
+		Add(a.ActivationUnit("g")).
+		Add(b.ActivationUnit("g").Salience(1)).
 		Add(c)
 
 	err := set.FireAllRules(context.Background(), struct{}{})

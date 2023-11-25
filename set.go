@@ -8,18 +8,18 @@ import (
 )
 
 type Set[T any] struct {
-	name              string
-	agendaGroups      map[string][]*Rule[T]
-	agendaGroupsOrder []string
-	activationGroups  map[string][]*Rule[T]
-	maxReevaluations  int
+	name             string
+	units            map[string][]*Rule[T]
+	unitsOrder       []string
+	activationUnits  map[string][]*Rule[T]
+	maxReevaluations int
 }
 
 func NewSet[T any](name string) *Set[T] {
 	return &Set[T]{
 		name:             name,
-		agendaGroups:     make(map[string][]*Rule[T]),
-		activationGroups: make(map[string][]*Rule[T]),
+		units:            make(map[string][]*Rule[T]),
+		activationUnits:  make(map[string][]*Rule[T]),
 		maxReevaluations: 256,
 	}
 }
@@ -37,34 +37,34 @@ func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
 }
 
 func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
-	var agendaGroupRules []*Rule[T]
+	var units []*Rule[T]
 
-	for _, existing := range s.agendaGroups[rule.agendaGroup] {
+	for _, existing := range s.units[rule.unit] {
 		if existing.name != rule.name {
-			agendaGroupRules = append(agendaGroupRules, existing)
+			units = append(units, existing)
 		}
 	}
 
-	s.agendaGroups[rule.agendaGroup] = append(agendaGroupRules, rule)
-	s.agendaGroupsOrder = uniq(append(s.agendaGroupsOrder, rule.agendaGroup))
+	s.units[rule.unit] = append(units, rule)
+	s.unitsOrder = uniq(append(s.unitsOrder, rule.unit))
 
-	if rule.activationGroup != nil {
-		var activationGroupRules []*Rule[T]
+	if rule.activationUnit != nil {
+		var activationUnits []*Rule[T]
 
-		for _, existing := range s.activationGroups[*rule.activationGroup] {
+		for _, existing := range s.activationUnits[*rule.activationUnit] {
 			if existing.name != rule.name {
-				activationGroupRules = append(activationGroupRules, existing)
+				activationUnits = append(activationUnits, existing)
 			}
 		}
 
-		s.activationGroups[*rule.activationGroup] = append(activationGroupRules, rule)
+		s.activationUnits[*rule.activationUnit] = append(activationUnits, rule)
 	}
 
 	return s
 }
 
-func (s *Set[T]) SetFocus(agendaGroups ...string) *Set[T] {
-	s.agendaGroupsOrder = uniq(append(agendaGroups, s.agendaGroupsOrder...))
+func (s *Set[T]) SetFocus(units ...string) *Set[T] {
+	s.unitsOrder = uniq(append(units, s.unitsOrder...))
 
 	return s
 }
@@ -80,8 +80,8 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisf
 
 	var reevaluations int
 
-	for _, agendaGroup := range s.agendaGroupsOrder {
-		applicable, err := s.applicableRules(ctx, agendaGroup, fact, ret, ruleFilters...)
+	for _, unit := range s.unitsOrder {
+		applicable, err := s.applicableRules(ctx, unit, fact, ret, ruleFilters...)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisf
 				}
 			}
 
-			applicable, err = s.applicableRules(ctx, agendaGroup, fact, ret, ruleFilters...)
+			applicable, err = s.applicableRules(ctx, unit, fact, ret, ruleFilters...)
 			if err != nil {
 				return err
 			}
@@ -108,11 +108,11 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisf
 	return nil
 }
 
-func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T, ret *retracting, filters ...Satisfiable[*Rule[T]]) ([]*Rule[T], error) {
+func (s *Set[T]) applicableRules(ctx context.Context, unit string, fact T, ret *retracting, filters ...Satisfiable[*Rule[T]]) ([]*Rule[T], error) {
 	var applicable []*Rule[T]
 
 loop:
-	for _, rule := range s.agendaGroups[agendaGroup] {
+	for _, rule := range s.units[unit] {
 		if ret.isRetracted(rule.name) {
 			continue
 		}
@@ -159,10 +159,10 @@ func (s *Set[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *
 
 	ret.add(rule.retracts...)
 
-	if rule.activationGroup != nil {
+	if rule.activationUnit != nil {
 		var names []string
 
-		for _, r := range s.activationGroups[*rule.activationGroup] {
+		for _, r := range s.activationUnits[*rule.activationUnit] {
 			names = append(names, r.name)
 		}
 

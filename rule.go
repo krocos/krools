@@ -1,24 +1,24 @@
 package krools
 
 type Rule[T any] struct {
-	name            string
-	salience        int
-	condition       Satisfiable[T]
-	action          Action[T]
-	retracts        []string
-	agendaGroup     string
-	activationGroup *string
+	name           string
+	salience       int
+	condition      Satisfiable[T]
+	action         Action[T]
+	retracts       []string
+	unit           string
+	activationUnit *string
 }
 
-const mainAgendaGroup = "MAIN"
+const mainUnit = "MAIN"
 
 func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
 	return &Rule[T]{
-		name:        name,
-		condition:   condition,
-		action:      action,
-		retracts:    []string{name},
-		agendaGroup: mainAgendaGroup,
+		name:      name,
+		condition: condition,
+		action:    action,
+		retracts:  []string{name},
+		unit:      mainUnit,
 	}
 }
 
@@ -32,14 +32,14 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	return r
 }
 
-func (r *Rule[T]) AgendaGroup(agendaGroup string) *Rule[T] {
-	r.agendaGroup = agendaGroup
+func (r *Rule[T]) Unit(unit string) *Rule[T] {
+	r.unit = unit
 
 	return r
 }
 
-func (r *Rule[T]) ActivationGroup(activationGroup string) *Rule[T] {
-	r.activationGroup = &activationGroup
+func (r *Rule[T]) ActivationUnit(activationUnit string) *Rule[T] {
+	r.activationUnit = &activationUnit
 
 	return r
 }
