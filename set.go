@@ -8,7 +8,7 @@ import (
 
 type Set[T any] struct {
 	name              string
-	agendaGroups      map[string]map[string]*Rule[T]
+	agendaGroups      map[string][]*Rule[T]
 	agendaGroupsOrder []string
 	activationGroups  map[string][]*Rule[T]
 	maxReevaluations  int
@@ -17,22 +17,34 @@ type Set[T any] struct {
 func NewSet[T any](name string) *Set[T] {
 	return &Set[T]{
 		name:             name,
-		agendaGroups:     make(map[string]map[string]*Rule[T]),
+		agendaGroups:     make(map[string][]*Rule[T]),
 		activationGroups: make(map[string][]*Rule[T]),
 		maxReevaluations: 256,
 	}
 }
 
 func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
-	if _, exists := s.agendaGroups[rule.agendaGroup]; !exists {
-		s.agendaGroups[rule.agendaGroup] = make(map[string]*Rule[T])
+	var agendaGroupRules []*Rule[T]
+
+	for _, existing := range s.agendaGroups[rule.agendaGroup] {
+		if existing.name != rule.name {
+			agendaGroupRules = append(agendaGroupRules, existing)
+		}
 	}
 
-	s.agendaGroups[rule.agendaGroup][rule.name] = rule
+	s.agendaGroups[rule.agendaGroup] = append(agendaGroupRules, rule)
 	s.agendaGroupsOrder = uniq(append(s.agendaGroupsOrder, rule.agendaGroup))
 
 	if rule.activationGroup != nil {
-		s.activationGroups[*rule.activationGroup] = append(s.activationGroups[*rule.activationGroup], rule)
+		var activationGroupRules []*Rule[T]
+
+		for _, existing := range s.activationGroups[*rule.activationGroup] {
+			if existing.name != rule.name {
+				activationGroupRules = append(activationGroupRules, existing)
+			}
+		}
+
+		s.activationGroups[*rule.activationGroup] = append(activationGroupRules, rule)
 	}
 
 	return s

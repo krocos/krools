@@ -20,13 +20,13 @@ func NewPriceGreaterThan(price int) *PriceGreaterThan {
 	return &PriceGreaterThan{price: price}
 }
 
-func (c *PriceGreaterThan) IsSatisfiedBy(ctx context.Context, candidate *Fact) (bool, error) {
+func (c *PriceGreaterThan) IsSatisfiedBy(_ context.Context, candidate *Fact) (bool, error) {
 	return candidate.Price > c.price, nil
 }
 
 type SetLowPriceAction struct{}
 
-func (s *SetLowPriceAction) Execute(ctx context.Context, fact *Fact) error {
+func (s *SetLowPriceAction) Execute(_ context.Context, fact *Fact) error {
 	fact.Tax = 5
 	return nil
 }
@@ -88,7 +88,11 @@ func TestAgendaGroups(t *testing.T) {
 	f := krools.NewRule[struct{}]("f", alwaysTrue, appendAction("f"))
 
 	set := krools.NewSet[struct{}]("some").
-		SetFocus("first", "groupThatDoesNotExists", "second").
+		SetFocus(
+			"first",
+			"groupThatDoesNotExists",
+			"second",
+		).
 		Add(a.Salience(2)).
 		Add(b.Salience(1)).
 		Add(c.AgendaGroup("second")).
@@ -101,7 +105,7 @@ func TestAgendaGroups(t *testing.T) {
 		t.FailNow()
 	}
 
-	if !(order == "fedcab" || order == "efdcab") {
+	if order != "efdcab" {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
