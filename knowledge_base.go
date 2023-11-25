@@ -134,7 +134,7 @@ loop:
 		for i, filter := range filters {
 			ok, err := filter.IsSatisfiedBy(ctx, rule)
 			if err != nil {
-				return nil, fmt.Errorf("verify that rule '%s' of set '%s' is satisfies filter %d: %w", rule.name, s.name, i, err)
+				return nil, fmt.Errorf("verify that rule '%s' of knowledge base '%s' is satisfies filter %d: %w", rule.name, s.name, i, err)
 			}
 
 			if !ok {
@@ -148,7 +148,7 @@ loop:
 			var err error
 			satisfied, err = rule.condition.IsSatisfiedBy(ctx, fact)
 			if err != nil {
-				return nil, fmt.Errorf("verify that condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
+				return nil, fmt.Errorf("verify that condition of rule '%s' of knowledge base '%s' is satisfied by fact: %w", rule.name, s.name, err)
 			}
 		}
 
@@ -168,7 +168,7 @@ func (s *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule
 	}
 
 	if err := rule.action.Execute(ctx, fact); err != nil {
-		return fmt.Errorf("execute action of rule '%s' of set '%s': %w", rule.name, s.name, err)
+		return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, s.name, err)
 	}
 
 	ret.add(rule.retracts...)
