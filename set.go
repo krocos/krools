@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type Set[T any] struct {
@@ -21,6 +22,18 @@ func NewSet[T any](name string) *Set[T] {
 		activationGroups: make(map[string][]*Rule[T]),
 		maxReevaluations: 256,
 	}
+}
+
+func RuleNameMustNotContains[T any](s string) Satisfiable[*Rule[T]] {
+	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+		return !strings.Contains(rule.name, s), nil
+	})
+}
+
+func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
+	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+		return strings.Contains(rule.name, s), nil
+	})
 }
 
 func (s *Set[T]) Add(rule *Rule[T]) *Set[T] {
@@ -62,13 +75,13 @@ func (s *Set[T]) SetMaxReevaluations(v int) *Set[T] {
 	return s
 }
 
-func (s *Set[T]) FireAllRules(ctx context.Context, fact T) error {
+func (s *Set[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
 	ret := newRetracting()
 
 	var reevaluations int
 
 	for _, agendaGroup := range s.agendaGroupsOrder {
-		applicable, err := s.applicableRules(ctx, agendaGroup, fact, ret)
+		applicable, err := s.applicableRules(ctx, agendaGroup, fact, ret, ruleFilters...)
 		if err != nil {
 			return err
 		}
@@ -80,7 +93,7 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T) error {
 				}
 			}
 
-			applicable, err = s.applicableRules(ctx, agendaGroup, fact, ret)
+			applicable, err = s.applicableRules(ctx, agendaGroup, fact, ret, ruleFilters...)
 			if err != nil {
 				return err
 			}
@@ -95,15 +108,27 @@ func (s *Set[T]) FireAllRules(ctx context.Context, fact T) error {
 	return nil
 }
 
-func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T, ret *retracting) ([]*Rule[T], error) {
+func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T, ret *retracting, filters ...Satisfiable[*Rule[T]]) ([]*Rule[T], error) {
 	var applicable []*Rule[T]
 
+loop:
 	for _, rule := range s.agendaGroups[agendaGroup] {
 		if ret.isRetracted(rule.name) {
 			continue
 		}
 
-		var satisfied bool
+		for i, filter := range filters {
+			ok, err := filter.IsSatisfiedBy(ctx, rule)
+			if err != nil {
+				return nil, fmt.Errorf("verify that rule '%s' of set '%s' is satisfies filter %d: %w", rule.name, s.name, i, err)
+			}
+
+			if !ok {
+				continue loop
+			}
+		}
+
+		satisfied := true
 
 		if rule.condition != nil {
 			var err error
@@ -111,8 +136,6 @@ func (s *Set[T]) applicableRules(ctx context.Context, agendaGroup string, fact T
 			if err != nil {
 				return nil, fmt.Errorf("verify that condition of rule '%s' of set '%s' is satisfied by fact: %w", rule.name, s.name, err)
 			}
-		} else {
-			satisfied = true
 		}
 
 		if satisfied {

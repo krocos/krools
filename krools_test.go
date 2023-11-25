@@ -171,3 +171,40 @@ func TestEmptyCondition(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestRuleFilters(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a - test", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+
+	set := krools.NewSet[struct{}]("some").
+		Add(a).
+		Add(b).
+		Add(c).
+		Add(d)
+
+	err := set.FireAllRules(
+		context.Background(),
+		struct{}{},
+		krools.RuleNameMustNotContains[struct{}]("b"),
+		krools.RuleNameMustNotContains[struct{}]("c"),
+		krools.RuleNameMustContains[struct{}]("test"),
+	)
+	if err != nil {
+		t.FailNow()
+	}
+
+	if order != "a" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
