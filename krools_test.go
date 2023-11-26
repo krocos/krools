@@ -255,3 +255,49 @@ func TestFlow(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestFlowRuleDeactivateUnits(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	falseCond := krools.ConditionFn[struct{}](func(ctx context.Context, candidate struct{}) (bool, error) {
+		return false, nil
+	})
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", falseCond, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+	h := krools.NewRule[struct{}]("h", nil, appendAction("h"))
+	i := krools.NewRule[struct{}]("i", nil, appendAction("i"))
+
+	k := krools.NewKnowledgeBase[struct{}]("some").
+		SetDeactivatedUnits("one", "two").
+		Add(a.DeactivateUnits("last")).
+		Add(b.ActivateUnits("one")).
+		Add(c.Unit("one")).
+		Add(d.Unit("one")).
+		Add(e).
+		Add(f.ActivateUnits("two")).
+		Add(g.Unit("two")).
+		Add(h.Unit("last")).
+		Add(i.Unit("last"))
+
+	err := k.FireAllRules(context.Background(), struct{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "aefg" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
