@@ -167,8 +167,10 @@ func (k *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule
 		return nil
 	}
 
-	if err := rule.action.Execute(ctx, fact); err != nil {
-		return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, k.name, err)
+	if rule.action != nil {
+		if err := rule.action.Execute(ctx, fact); err != nil {
+			return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, k.name, err)
+		}
 	}
 
 	ret.add(rule.retracts...)
