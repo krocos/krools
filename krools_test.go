@@ -196,9 +196,9 @@ func TestRuleFilters(t *testing.T) {
 	err := k.FireAllRules(
 		context.Background(),
 		struct{}{},
-		krools.RuleNameMustNotContains[struct{}]("b"),
-		krools.RuleNameMustNotContains[struct{}]("c"),
-		krools.RuleNameMustContains[struct{}]("test"),
+		krools.RuleNameMustNotContainsAny[struct{}]("b"),
+		krools.RuleNameMustNotContainsAny[struct{}]("c"),
+		krools.RuleNameMustContainsAny[struct{}]("test"),
 	)
 	if err != nil {
 		t.FailNow()

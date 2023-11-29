@@ -17,15 +17,33 @@ func RuleNameEndsWith[T any](suffix string) Satisfiable[*Rule[T]] {
 	})
 }
 
-func RuleNameMustNotContains[T any](s string) Satisfiable[*Rule[T]] {
+func RuleNameMustNotContainsAny[T any](substrings ...string) Satisfiable[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
-		return !strings.Contains(rule.name, s), nil
+		if len(substrings) > 0 {
+			for _, substring := range substrings {
+				if strings.Contains(rule.name, substring) {
+					return false, nil
+				}
+			}
+		}
+
+		return true, nil
 	})
 }
 
-func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
+func RuleNameMustContainsAny[T any](substrings ...string) Satisfiable[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
-		return strings.Contains(rule.name, s), nil
+		if len(substrings) > 0 {
+			for _, substring := range substrings {
+				if strings.Contains(rule.name, substring) {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		}
+
+		return true, nil
 	})
 }
 
