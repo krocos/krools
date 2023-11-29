@@ -324,7 +324,7 @@ func TestRuleFilter_RunOnlyRulesFromUnits(t *testing.T) {
 		Add(d.Unit("B"))
 
 	err := k.FireAllRules(context.Background(), struct{}{},
-		krools.RunOnlyRulesFromUnits[struct{}]("MAIN", "A"))
+		krools.RunOnlyUnits[struct{}]("MAIN", "A"))
 	if err != nil {
 		t.Fatal(err)
 	}

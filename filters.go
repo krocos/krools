@@ -47,7 +47,7 @@ func RuleNameMustContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
 	})
 }
 
-func RunOnlyRulesFromUnits[T any](units ...string) Condition[*Rule[T]] {
+func RunOnlyUnits[T any](units ...string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		if len(units) > 0 {
 			return contains(units, rule.unit), nil
