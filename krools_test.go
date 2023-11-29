@@ -333,3 +333,65 @@ func TestRuleFilter_RunOnlyRulesFromUnits(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestRuleFilter_RuleNameStartsWith(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("aabbcc", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("bbccdd", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("ccddee", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("ddeeff", nil, appendAction("d"))
+
+	k := krools.NewKnowledgeBase[struct{}]("some").
+		Add(a.Unit("C")).
+		Add(b).
+		Add(c.Unit("A")).
+		Add(d.Unit("B"))
+
+	err := k.FireAllRules(context.Background(), struct{}{}, krools.RuleNameStartsWith[struct{}]("bb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "b" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+func TestRuleFilter_RuleNameEndsWith(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("aabbee", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("bbccdd", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("ccddee", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("ddeeff", nil, appendAction("d"))
+
+	k := krools.NewKnowledgeBase[struct{}]("some").
+		Add(a.Unit("C")).
+		Add(b).
+		Add(c.Unit("A")).
+		Add(d.Unit("B"))
+
+	err := k.FireAllRules(context.Background(), struct{}{}, krools.RuleNameEndsWith[struct{}]("ee"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "ac" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
