@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-func RuleNameStartsWith[T any](prefix string) Satisfiable[*Rule[T]] {
+func RuleNameStartsWith[T any](prefix string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		return strings.HasPrefix(rule.name, prefix), nil
 	})
 }
 
-func RuleNameEndsWith[T any](suffix string) Satisfiable[*Rule[T]] {
+func RuleNameEndsWith[T any](suffix string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		return strings.HasSuffix(rule.name, suffix), nil
 	})
 }
 
-func RuleNameMustNotContainsAny[T any](substrings ...string) Satisfiable[*Rule[T]] {
+func RuleNameMustNotContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		if len(substrings) > 0 {
 			for _, substring := range substrings {
@@ -31,7 +31,7 @@ func RuleNameMustNotContainsAny[T any](substrings ...string) Satisfiable[*Rule[T
 	})
 }
 
-func RuleNameMustContainsAny[T any](substrings ...string) Satisfiable[*Rule[T]] {
+func RuleNameMustContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		if len(substrings) > 0 {
 			for _, substring := range substrings {
@@ -47,7 +47,7 @@ func RuleNameMustContainsAny[T any](substrings ...string) Satisfiable[*Rule[T]] 
 	})
 }
 
-func RunOnlyRulesFromUnits[T any](units ...string) Satisfiable[*Rule[T]] {
+func RunOnlyRulesFromUnits[T any](units ...string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		if len(units) > 0 {
 			return contains(units, rule.unit), nil

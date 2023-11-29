@@ -12,7 +12,7 @@ type (
 	Action[T any] interface {
 		Execute(ctx context.Context, fireContext T) error
 	}
-	Satisfiable[T any] interface {
+	Condition[T any] interface {
 		IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error)
 	}
 )

@@ -3,7 +3,7 @@ package krools
 type Rule[T any] struct {
 	name           string
 	salience       int
-	condition      Satisfiable[T]
+	condition      Condition[T]
 	action         Action[T]
 	retracts       []string
 	unit           string
@@ -14,7 +14,7 @@ type Rule[T any] struct {
 	focusUnits      []string
 }
 
-func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
+func NewRule[T any](name string, condition Condition[T], action Action[T]) *Rule[T] {
 	return &Rule[T]{
 		name:      name,
 		condition: condition,
