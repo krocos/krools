@@ -10,21 +10,21 @@ const UnitMAIN = "MAIN"
 
 type (
 	Action[T any] interface {
-		Execute(ctx context.Context, fact T) error
+		Execute(ctx context.Context, fireContext T) error
 	}
 	Satisfiable[T any] interface {
-		IsSatisfiedBy(ctx context.Context, candidate T) (bool, error)
+		IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error)
 	}
 )
 
-type ActionFn[T any] func(ctx context.Context, fact T) error
+type ActionFn[T any] func(ctx context.Context, fireContext T) error
 
-func (f ActionFn[T]) Execute(ctx context.Context, fact T) error { return f(ctx, fact) }
+func (f ActionFn[T]) Execute(ctx context.Context, fireContext T) error { return f(ctx, fireContext) }
 
-type ConditionFn[T any] func(ctx context.Context, candidate T) (bool, error)
+type ConditionFn[T any] func(ctx context.Context, fireContext T) (bool, error)
 
-func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, candidate T) (bool, error) {
-	return f(ctx, candidate)
+func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error) {
+	return f(ctx, fireContext)
 }
 
 func sortRulesConsiderSalience[T any](rules []*Rule[T]) {

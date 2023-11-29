@@ -69,26 +69,26 @@ func (k *KnowledgeBase[T]) SetMaxReevaluations(v int) *KnowledgeBase[T] {
 	return k
 }
 
-func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters ...Satisfiable[*Rule[T]]) error {
+func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fireContext T, ruleFilters ...Satisfiable[*Rule[T]]) error {
 	ret := newRetracting()
 	flow := newFlowController[T](ret, k.units, k.unitsOrder, k.deactivatedUnits)
 
 	var reevaluations int
 
 	for flow.more() {
-		applicable, err := k.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
+		applicable, err := k.applicableRules(ctx, flow.rules(), fireContext, ret, ruleFilters...)
 		if err != nil {
 			return err
 		}
 
 		for len(applicable) > 0 {
 			for _, rule := range applicable {
-				if err = k.executeAction(ctx, fact, rule, ret, flow); err != nil {
+				if err = k.executeAction(ctx, fireContext, rule, ret, flow); err != nil {
 					return err
 				}
 			}
 
-			applicable, err = k.applicableRules(ctx, flow.rules(), fact, ret, ruleFilters...)
+			applicable, err = k.applicableRules(ctx, flow.rules(), fireContext, ret, ruleFilters...)
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fact T, ruleFilters
 func (k *KnowledgeBase[T]) applicableRules(
 	ctx context.Context,
 	rules []*Rule[T],
-	fact T,
+	fireContext T,
 	ret *retracting,
 	filters ...Satisfiable[*Rule[T]],
 ) ([]*Rule[T], error) {
@@ -133,9 +133,9 @@ loop:
 
 		if rule.condition != nil {
 			var err error
-			satisfied, err = rule.condition.IsSatisfiedBy(ctx, fact)
+			satisfied, err = rule.condition.IsSatisfiedBy(ctx, fireContext)
 			if err != nil {
-				return nil, fmt.Errorf("verify that condition of rule '%s' of knowledge base '%s' is satisfied by fact: %w", rule.name, k.name, err)
+				return nil, fmt.Errorf("verify that condition of rule '%s' of knowledge base '%s' is satisfied by fire context: %w", rule.name, k.name, err)
 			}
 		}
 
@@ -149,13 +149,13 @@ loop:
 	return applicable, nil
 }
 
-func (k *KnowledgeBase[T]) executeAction(ctx context.Context, fact T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
+func (k *KnowledgeBase[T]) executeAction(ctx context.Context, fireContext T, rule *Rule[T], ret *retracting, flow *flowController[T]) error {
 	if ret.isRetracted(rule.name) {
 		return nil
 	}
 
 	if rule.action != nil {
-		if err := rule.action.Execute(ctx, fact); err != nil {
+		if err := rule.action.Execute(ctx, fireContext); err != nil {
 			return fmt.Errorf("execute action of rule '%s' of knowledge base '%s': %w", rule.name, k.name, err)
 		}
 	}
