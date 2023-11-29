@@ -37,6 +37,16 @@ func RuleNameMustContains[T any](s string) Satisfiable[*Rule[T]] {
 	})
 }
 
+func RunOnlyRulesFromUnits[T any](units ...string) Satisfiable[*Rule[T]] {
+	return ConditionFn[*Rule[T]](func(ctx context.Context, candidate *Rule[T]) (bool, error) {
+		if len(units) > 0 {
+			return contains(units, candidate.unit), nil
+		}
+
+		return true, nil
+	})
+}
+
 func (k *KnowledgeBase[T]) Add(rule *Rule[T]) *KnowledgeBase[T] {
 	var units []*Rule[T]
 

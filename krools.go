@@ -6,6 +6,8 @@ import (
 	"slices"
 )
 
+const UnitMAIN = "MAIN"
+
 type (
 	Action[T any] interface {
 		Execute(ctx context.Context, fact T) error
@@ -57,4 +59,14 @@ func reject(collection []string, value string) []string {
 	}
 
 	return result
+}
+
+func contains[T comparable](collection []T, element T) bool {
+	for _, item := range collection {
+		if item == element {
+			return true
+		}
+	}
+
+	return false
 }

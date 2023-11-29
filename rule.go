@@ -14,15 +14,13 @@ type Rule[T any] struct {
 	focusUnits      []string
 }
 
-const mainUnit = "MAIN"
-
 func NewRule[T any](name string, condition Satisfiable[T], action Action[T]) *Rule[T] {
 	return &Rule[T]{
 		name:      name,
 		condition: condition,
 		action:    action,
 		retracts:  []string{name},
-		unit:      mainUnit,
+		unit:      UnitMAIN,
 	}
 }
 
