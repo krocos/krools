@@ -301,3 +301,35 @@ func TestFlowRuleDeactivateUnits(t *testing.T) {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
+
+func TestRuleFilter_RunOnlyRulesFromUnits(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+
+	k := krools.NewKnowledgeBase[struct{}]("some").
+		Add(a.Unit("C")).
+		Add(b).
+		Add(c.Unit("A")).
+		Add(d.Unit("B"))
+
+	err := k.FireAllRules(context.Background(), struct{}{},
+		krools.RunOnlyRulesFromUnits[struct{}]("MAIN", "A"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "bc" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
