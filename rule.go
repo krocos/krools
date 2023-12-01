@@ -6,6 +6,7 @@ type Rule[T any] struct {
 	condition      Condition[T]
 	action         Action[T]
 	retracts       []string
+	inserts        []string
 	unit           string
 	activationUnit *string
 
@@ -30,6 +31,16 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	}
 
 	r.retracts = uniq(append(r.retracts, rules...))
+
+	return r
+}
+
+func (r *Rule[T]) Inserts(rules ...string) *Rule[T] {
+	if len(rules) == 0 {
+		rules = append(rules, r.name)
+	}
+
+	r.inserts = uniq(append(r.inserts, rules...))
 
 	return r
 }

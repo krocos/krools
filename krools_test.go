@@ -324,7 +324,7 @@ func TestRuleFilter_RunOnlyRulesFromUnits(t *testing.T) {
 		Add(d.Unit("B"))
 
 	err := k.FireAllRules(context.Background(), struct{}{},
-		krools.RunOnlyUnits[struct{}]("MAIN", "A"))
+		krools.RunOnlyUnits[struct{}](krools.UnitMAIN, "A"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,5 +393,59 @@ func TestRuleFilter_RuleNameEndsWith(t *testing.T) {
 
 	if order != "ac" {
 		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+func TestRule_Inserts(t *testing.T) {
+	type fc struct {
+		counter int
+	}
+
+	var order string
+
+	appendAction := func(v string) krools.Action[*fc] {
+		return krools.ActionFn[*fc](func(ctx context.Context, fact *fc) error {
+			order += v
+			return nil
+		})
+	}
+
+	counterLowerThanOne := krools.ConditionFn[*fc](func(ctx context.Context, candidate *fc) (bool, error) {
+		return candidate.counter < 1, nil
+	})
+	counterPlusOne := krools.ActionFn[*fc](func(ctx context.Context, fireContext *fc) error {
+		fireContext.counter++
+		return nil
+	})
+
+	a := krools.NewRule[*fc]("a", nil, appendAction("a"))
+	b := krools.NewRule[*fc]("b", nil, appendAction("b"))
+	c := krools.NewRule[*fc]("c", counterLowerThanOne, krools.NewActionStack[*fc](
+		counterPlusOne,
+		appendAction("c"),
+	))
+	d := krools.NewRule[*fc]("d", nil, appendAction("d"))
+	e := krools.NewRule[*fc]("e", nil, appendAction("e"))
+
+	k := krools.NewKnowledgeBase[*fc]("some").
+		Add(a).
+		Add(b).
+		Add(c.Inserts("b")).
+		Add(d).
+		Add(e.Unit("next"))
+
+	fireContext := new(fc)
+
+	err := k.FireAllRules(context.Background(), fireContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "abcdbe" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+
+	if fireContext.counter != 1 {
+		t.Fatalf("unexpected counter value: %d", fireContext.counter)
 	}
 }
