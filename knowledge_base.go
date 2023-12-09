@@ -161,10 +161,9 @@ func (k *KnowledgeBase[T]) executeAction(ctx context.Context, fireContext T, rul
 	}
 
 	ret.add(rule.retracts...)
-	ret.reject(rule.inserts...)
-
 	flow.deactivateUnits(rule.deactivateUnits...)
 	flow.activateUnits(rule.activateUnits...)
+	ret.reject(rule.inserts...)
 	flow.setFocus(rule.focusUnits...)
 
 	if rule.activationUnit != nil {
