@@ -51,6 +51,14 @@ func (k *KnowledgeBase[T]) Add(rule *Rule[T]) *KnowledgeBase[T] {
 	return k
 }
 
+func (k *KnowledgeBase[T]) AddUnit(unit string, rules ...*Rule[T]) *KnowledgeBase[T] {
+	for _, rule := range rules {
+		k.Add(rule.Unit(unit))
+	}
+
+	return k
+}
+
 func (k *KnowledgeBase[T]) SetFocus(units ...string) *KnowledgeBase[T] {
 	k.unitsOrder = uniq(append(units, k.unitsOrder...))
 

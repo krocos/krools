@@ -449,3 +449,97 @@ func TestRule_Inserts(t *testing.T) {
 		t.Fatalf("unexpected counter value: %d", fireContext.counter)
 	}
 }
+
+func TestKnowledgeBase_AddUnit(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+
+	k := krools.NewKnowledgeBase[struct{}]("add unit").
+		AddUnit("first", d, e, f, g).
+		AddUnit("second", a, b, c)
+
+	if err := k.FireAllRules(context.Background(), struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "defgabc" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+func TestKnowledgeBase_AddUnit_ActivateDeactivatedUnit(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+
+	k := krools.NewKnowledgeBase[struct{}]("add unit").
+		AddUnit("first", d, e, f, g.DeactivateUnits("second")).
+		AddUnit("second", a, b, c)
+
+	if err := k.FireAllRules(context.Background(), struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "defg" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+func TestKnowledgeBase_AddUnit_Deactivation(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+
+	k := krools.NewKnowledgeBase[struct{}]("add unit").
+		SetDeactivatedUnits("second").
+		AddUnit("first", d, e, f, g.ActivationUnit("second")).
+		AddUnit("second", a, b, c)
+
+	if err := k.FireAllRules(context.Background(), struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "defg" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
