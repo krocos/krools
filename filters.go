@@ -2,6 +2,7 @@ package krools
 
 import (
 	"context"
+	"regexp"
 	"strings"
 )
 
@@ -14,6 +15,12 @@ func RuleNameStartsWith[T any](prefix string) Condition[*Rule[T]] {
 func RuleNameEndsWith[T any](suffix string) Condition[*Rule[T]] {
 	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
 		return strings.HasSuffix(rule.name, suffix), nil
+	})
+}
+
+func RuleNameMatchRegexp[T any](exp *regexp.Regexp) Condition[*Rule[T]] {
+	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+		return exp.MatchString(rule.name), nil
 	})
 }
 

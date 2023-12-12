@@ -2,6 +2,7 @@ package krools_test
 
 import (
 	"context"
+	"regexp"
 	"testing"
 
 	"github.com/krocos/krools"
@@ -540,6 +541,46 @@ func TestKnowledgeBase_AddUnit_Deactivation(t *testing.T) {
 	}
 
 	if order != "defg" {
+		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+func TestRuleNameMatchRegexpFilter(t *testing.T) {
+	var order string
+
+	appendAction := func(v string) krools.Action[struct{}] {
+		return krools.ActionFn[struct{}](func(ctx context.Context, fact struct{}) error {
+			order += v
+			return nil
+		})
+	}
+
+	a := krools.NewRule[struct{}]("a", nil, appendAction("a"))
+	b := krools.NewRule[struct{}]("b", nil, appendAction("b"))
+	c := krools.NewRule[struct{}]("c", nil, appendAction("c"))
+	d := krools.NewRule[struct{}]("d", nil, appendAction("d"))
+	e := krools.NewRule[struct{}]("e", nil, appendAction("e"))
+	f := krools.NewRule[struct{}]("f", nil, appendAction("f"))
+	g := krools.NewRule[struct{}]("g", nil, appendAction("g"))
+
+	exp, err := regexp.Compile(`^[aceg]$`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = krools.NewKnowledgeBase[struct{}]("regex").
+		Add(a).
+		Add(b).
+		Add(c).
+		Add(d).
+		Add(e).
+		Add(f).
+		Add(g).FireAllRules(context.Background(), struct{}{}, krools.RuleNameMatchRegexp[struct{}](exp))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if order != "aceg" {
 		t.Fatalf("unexpected order of execution: %s", order)
 	}
 }
