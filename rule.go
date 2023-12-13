@@ -25,7 +25,7 @@ func NewRule[T any](name string, condition Condition[T], action Action[T]) *Rule
 	}
 }
 
-func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
+func (r *Rule[T]) Retract(rules ...string) *Rule[T] {
 	if len(rules) == 0 {
 		rules = append(rules, r.name)
 	}
@@ -35,7 +35,7 @@ func (r *Rule[T]) Retracts(rules ...string) *Rule[T] {
 	return r
 }
 
-func (r *Rule[T]) Inserts(rules ...string) *Rule[T] {
+func (r *Rule[T]) Insert(rules ...string) *Rule[T] {
 	if len(rules) == 0 {
 		rules = append(rules, r.name)
 	}
@@ -71,12 +71,6 @@ func (r *Rule[T]) ActivateUnits(units ...string) *Rule[T] {
 
 func (r *Rule[T]) SetFocus(units ...string) *Rule[T] {
 	r.focusUnits = uniq(append(r.focusUnits, units...))
-
-	return r
-}
-
-func (r *Rule[T]) DoNotAutoRetract() *Rule[T] {
-	r.retracts = reject(r.retracts, r.name)
 
 	return r
 }

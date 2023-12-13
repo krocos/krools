@@ -20,7 +20,7 @@ func NewKnowledgeBase[T any](name string) *KnowledgeBase[T] {
 		name:             name,
 		units:            make(map[string][]*Rule[T]),
 		activationUnits:  make(map[string][]*Rule[T]),
-		maxReevaluations: 256,
+		maxReevaluations: 65535,
 	}
 }
 

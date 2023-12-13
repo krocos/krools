@@ -48,7 +48,7 @@ func TestKrools(t *testing.T) {
 	})
 	k := krools.NewKnowledgeBase[*Fact]("Example set").
 		Add(krools.NewRule[*Fact]("Tax for big price", priceGreater100, bigPriceAction).
-			Retracts("Tax for low price").Salience(1)).
+			Retract("Tax for low price").Salience(1)).
 		Add(krools.NewRule[*Fact]("Tax for low price", priceGreater10, krools.NewActionStack[*Fact](
 			lowPriceTaAction,
 			krools.ActionFn[*Fact](func(ctx context.Context, fact *Fact) error {
@@ -431,7 +431,7 @@ func TestRule_Inserts(t *testing.T) {
 	k := krools.NewKnowledgeBase[*fc]("some").
 		Add(a).
 		Add(b).
-		Add(c.Inserts("b")).
+		Add(c.Insert("b")).
 		Add(d).
 		Add(e.Unit("next"))
 
@@ -582,5 +582,35 @@ func TestRuleNameMatchRegexpFilter(t *testing.T) {
 
 	if order != "aceg" {
 		t.Fatalf("unexpected order of execution: %s", order)
+	}
+}
+
+type selfInsertCtx struct {
+	counter int
+}
+
+func TestSelfInsert(t *testing.T) {
+	selfInsert := krools.NewRule[*selfInsertCtx](
+		"self insert",
+		// When
+		krools.ConditionFn[*selfInsertCtx](func(ctx context.Context, fireContext *selfInsertCtx) (bool, error) {
+			return fireContext.counter < 10, nil
+		}),
+		// Then
+		krools.ActionFn[*selfInsertCtx](func(ctx context.Context, fireContext *selfInsertCtx) error {
+			fireContext.counter++
+			return nil
+		}),
+	)
+
+	c := new(selfInsertCtx)
+
+	if err := krools.NewKnowledgeBase[*selfInsertCtx]("self insert").
+		Add(selfInsert.Insert()).FireAllRules(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+
+	if c.counter != 10 {
+		t.Fatalf("unexpected counter: %d", c.counter)
 	}
 }
