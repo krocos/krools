@@ -10,6 +10,40 @@ import (
 	"github.com/krocos/krools/list"
 )
 
+type counterContext struct {
+	v int
+}
+
+func TestStatefulRule(t *testing.T) {
+	sr := krools.NewStatefulRule[*counterContext](func() *krools.Rule[*counterContext] {
+		var prev int
+
+		return krools.NewRule[*counterContext](
+			"just stateful rule",
+			// When
+			krools.ConditionFn[*counterContext](func(ctx context.Context, fireContext *counterContext) (bool, error) {
+				return prev < 5, nil
+			}),
+			// Then
+			krools.ActionFn[*counterContext](func(ctx context.Context, fireContext *counterContext) error {
+				prev = fireContext.v
+				fireContext.v++
+				return nil
+			}),
+		)
+	})
+
+	c := new(counterContext)
+	if err := krools.NewKnowledgeBase[*counterContext]("kb").Add(sr.Insert()).
+		FireAllRules(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+
+	if c.v != 6 {
+		t.Fatal("unexpected final result")
+	}
+}
+
 type item struct {
 	v  string
 	ok bool
