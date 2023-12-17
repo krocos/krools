@@ -9,6 +9,7 @@ type Rule[T any] struct {
 	inserts        []string
 	unit           string
 	activationUnit *string
+	noLoop         bool
 
 	deactivateUnits []string
 	activateUnits   []string
@@ -23,6 +24,12 @@ func NewRule[T any](name string, condition Condition[T], action Action[T]) *Rule
 		retracts:  []string{name},
 		unit:      UnitMAIN,
 	}
+}
+
+func (r *Rule[T]) NoLoop() *Rule[T] {
+	r.noLoop = true
+
+	return r
 }
 
 func (r *Rule[T]) Retract(rules ...string) *Rule[T] {

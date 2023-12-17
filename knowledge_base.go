@@ -84,7 +84,7 @@ func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fireContext T, rule
 	var reevaluations int
 
 	for flow.more() {
-		applicable, err := k.applicableRules(ctx, flow.rules(), fireContext, ret, ruleFilters...)
+		applicable, err := k.applicableRules(ctx, flow.rules(), fireContext, ret, false, ruleFilters...)
 		if err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fireContext T, rule
 				}
 			}
 
-			applicable, err = k.applicableRules(ctx, flow.rules(), fireContext, ret, ruleFilters...)
+			applicable, err = k.applicableRules(ctx, flow.rules(), fireContext, ret, true, ruleFilters...)
 			if err != nil {
 				return err
 			}
@@ -116,6 +116,7 @@ func (k *KnowledgeBase[T]) applicableRules(
 	rules []*Rule[T],
 	fireContext T,
 	ret *retracting,
+	discardNoLoop bool,
 	filters ...Condition[*Rule[T]],
 ) ([]*Rule[T], error) {
 	var applicable []*Rule[T]
@@ -123,6 +124,10 @@ func (k *KnowledgeBase[T]) applicableRules(
 loop:
 	for _, rule := range rules {
 		if ret.isRetracted(rule.name) {
+			continue
+		}
+
+		if discardNoLoop && rule.noLoop {
 			continue
 		}
 
