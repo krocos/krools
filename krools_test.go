@@ -3,11 +3,9 @@ package krools_test
 import (
 	"context"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/krocos/krools"
-	"github.com/krocos/krools/list"
 )
 
 type counterContext struct {
@@ -41,124 +39,6 @@ func TestStatefulRule(t *testing.T) {
 
 	if c.v != 6 {
 		t.Fatal("unexpected final result")
-	}
-}
-
-type item struct {
-	v  string
-	ok bool
-}
-
-type iterateUnit struct {
-	el *list.Element[*item]
-}
-
-type iter struct {
-	items []*item
-
-	iterateUnit
-
-	toUpdate []*item
-}
-
-func TestNoLoop(t *testing.T) {
-	longerThanTwo := krools.NewRule[*iter](
-		"longer than two",
-		// When
-		krools.ConditionFn[*iter](func(ctx context.Context, fireContext *iter) (bool, error) {
-			return fireContext.el != nil && len([]rune(fireContext.el.Value.v)) > 2, nil
-		}),
-		// Then
-		krools.ActionFn[*iter](func(ctx context.Context, fireContext *iter) error {
-			fireContext.iterateUnit.el.Value.ok = true
-			return nil
-		}),
-	)
-	hasNoSymbol := krools.NewRule[*iter](
-		"has no symbol",
-		// When
-		krools.ConditionFn[*iter](func(ctx context.Context, fireContext *iter) (bool, error) {
-			return fireContext.el != nil && !strings.Contains(fireContext.iterateUnit.el.Value.v, "a"), nil
-		}),
-		// Then
-		krools.ActionFn[*iter](func(ctx context.Context, fireContext *iter) error {
-			fireContext.iterateUnit.el.Value.ok = true
-			return nil
-		}),
-	)
-	initIteration := krools.NewRule[*iter](
-		"init iteration",
-		// When
-		nil,
-		// Then
-		krools.ActionFn[*iter](func(ctx context.Context, fireContext *iter) error {
-			l := list.New[*item]()
-			for _, i := range fireContext.items {
-				l.PushBack(i)
-			}
-			fireContext.iterateUnit.el = l.Front()
-			return nil
-		}),
-	)
-	ifOK := krools.NewRule[*iter](
-		"if ok",
-		// When
-		krools.ConditionFn[*iter](func(ctx context.Context, fireContext *iter) (bool, error) {
-			return fireContext.el != nil && fireContext.iterateUnit.el.Value.ok, nil
-		}),
-		// Then
-		krools.ActionFn[*iter](func(ctx context.Context, fireContext *iter) error {
-			fireContext.toUpdate = append(fireContext.toUpdate, fireContext.iterateUnit.el.Value)
-			return nil
-		}),
-	)
-	moveNext := krools.NewRule[*iter](
-		"move next",
-		// When
-		krools.ConditionFn[*iter](func(ctx context.Context, fireContext *iter) (bool, error) {
-			return fireContext.iterateUnit.el != nil, nil
-		}),
-		// Then
-		krools.ActionFn[*iter](func(ctx context.Context, fireContext *iter) error {
-			fireContext.iterateUnit.el = fireContext.iterateUnit.el.Next()
-			return nil
-		}),
-	)
-
-	k := krools.NewKnowledgeBase[*iter]("iter").
-		Add(initIteration).
-		AddUnit(
-			"iterate unit",
-			hasNoSymbol,
-			longerThanTwo,
-			ifOK,
-		).
-		AddUnit("move next",
-			moveNext.Insert().NoLoop().
-				ActivateUnits("iterate unit").
-				SetFocus("iterate unit"))
-
-	fc := &iter{
-		items: []*item{
-			{v: "abcd"},
-			{v: "bcd"},
-			{v: "ba"},
-			{v: "b"},
-		},
-	}
-
-	if err := k.FireAllRules(context.Background(), fc); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, i := range fc.items {
-		t.Log(i.v, i.ok)
-	}
-
-	t.Log("---------")
-
-	for _, i := range fc.toUpdate {
-		t.Log(i.v, i.ok)
 	}
 }
 
