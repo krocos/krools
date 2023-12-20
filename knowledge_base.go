@@ -77,7 +77,37 @@ func (k *KnowledgeBase[T]) SetMaxReevaluations(v int) *KnowledgeBase[T] {
 	return k
 }
 
-func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fireContext T, ruleFilters ...Condition[*Rule[T]]) error {
+func (k *KnowledgeBase[T]) FireAllRules(ctx context.Context, fireContext T, options ...any) error {
+	var (
+		dispatcher  Dispatcher[T]
+		ruleFilters []Condition[*Rule[T]]
+	)
+
+	for _, option := range options {
+		switch v := option.(type) {
+		case Dispatcher[T]:
+			dispatcher = v
+		case Condition[*Rule[T]]:
+			ruleFilters = append(ruleFilters, v)
+		}
+	}
+
+	if dispatcher != nil {
+		starter := k.executor(ruleFilters...)
+
+		return dispatcher.Dispatch(ctx, fireContext, starter)
+	}
+
+	return k.fire(ctx, fireContext, ruleFilters...)
+}
+
+func (k *KnowledgeBase[T]) executor(ruleFilters ...Condition[*Rule[T]]) Executor[T] {
+	return func(ctx context.Context, fireContext T) error {
+		return k.fire(ctx, fireContext, ruleFilters...)
+	}
+}
+
+func (k *KnowledgeBase[T]) fire(ctx context.Context, fireContext T, ruleFilters ...Condition[*Rule[T]]) error {
 	ret := newRetracting()
 	flow := newFlowController[T](ret, k.units, k.unitsOrder, k.deactivatedUnits)
 

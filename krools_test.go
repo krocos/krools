@@ -3,10 +3,173 @@ package krools_test
 import (
 	"context"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/krocos/krools"
 )
+
+type streamItem struct {
+	value string
+}
+
+type needProcessing struct {
+	item *streamItem
+}
+
+type streamContext struct {
+	item *streamItem
+
+	needSomeProcessing *needProcessing
+}
+
+type streamDispatcher struct {
+	in  <-chan string
+	out chan *needProcessing
+}
+
+func newStreamDispatcher(in <-chan string) (*streamDispatcher, <-chan *needProcessing) {
+	d := &streamDispatcher{
+		in:  in,
+		out: make(chan *needProcessing),
+	}
+
+	return d, d.out
+}
+
+func (d *streamDispatcher) Dispatch(ctx context.Context, fireContext *streamContext, fireAllRules krools.Executor[*streamContext]) error {
+	defer close(d.out)
+
+	for s := range d.in {
+		fireContext.item = &streamItem{value: s}
+		fireContext.needSomeProcessing = nil
+
+		if err := fireAllRules(ctx, fireContext); err != nil {
+			return err
+		}
+
+		if fireContext.needSomeProcessing != nil {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case d.out <- fireContext.needSomeProcessing:
+			}
+		}
+	}
+
+	return nil
+}
+
+func TestStreamProcessing(t *testing.T) {
+	k := krools.NewKnowledgeBase[*streamContext]("stream").
+		Add(krools.NewRule[*streamContext](
+			"handle stream item",
+			// When
+			krools.ConditionFn[*streamContext](func(ctx context.Context, fireContext *streamContext) (bool, error) {
+				return fireContext.item != nil &&
+					!strings.Contains(fireContext.item.value, "a") &&
+					fireContext.needSomeProcessing == nil, nil
+			}),
+			// Then
+			krools.ActionFn[*streamContext](func(ctx context.Context, fireContext *streamContext) error {
+				fireContext.needSomeProcessing = &needProcessing{item: fireContext.item}
+				return nil
+			}),
+		))
+
+	in := make(chan string)
+
+	dispatcher, out := newStreamDispatcher(in)
+
+	go func() {
+		defer close(in)
+		for _, v := range []string{"a", "b", "c", "d"} {
+			in <- v
+		}
+	}()
+
+	go func() {
+		for v := range out {
+			t.Log(v.item.value)
+		}
+	}()
+
+	c := new(streamContext)
+	if err := k.FireAllRules(context.Background(), c, dispatcher); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type iterationContext struct {
+	items        []string
+	anotherItems []string
+
+	item  *string
+	count int
+}
+
+type iterator struct{}
+
+func (i *iterator) Dispatch(ctx context.Context, fireContext *iterationContext, fireAllRules krools.Executor[*iterationContext]) error {
+	for _, item := range fireContext.items {
+		fireContext.item = &item
+		if err := fireAllRules(ctx, fireContext); err != nil {
+			return err
+		}
+	}
+
+	for _, anotherItem := range fireContext.anotherItems {
+		fireContext.item = &anotherItem
+		if err := fireAllRules(ctx, fireContext); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func TestIterationViaDispatching(t *testing.T) {
+	k := krools.NewKnowledgeBase[*iterationContext]("iteration").
+		Add(krools.NewRule[*iterationContext](
+			"count item",
+			// When
+			krools.ConditionFn[*iterationContext](func(ctx context.Context, fireContext *iterationContext) (bool, error) {
+				return fireContext.item != nil, nil
+			}),
+			// Then
+			krools.ActionFn[*iterationContext](func(ctx context.Context, fireContext *iterationContext) error {
+				fireContext.count++
+				return nil
+			}),
+		)).
+		Add(krools.NewRule[*iterationContext](
+			"rule that never be fired",
+			// When
+			krools.ConditionFn[*iterationContext](func(ctx context.Context, fireContext *iterationContext) (bool, error) {
+				return true, nil
+			}),
+			// Then
+			krools.ActionFn[*iterationContext](func(ctx context.Context, fireContext *iterationContext) error {
+				t.Log("FIRE! The rule that never be fired was fired! WTF?")
+				return nil
+			}),
+		))
+
+	c := &iterationContext{items: []string{"a", "b", "c"}, anotherItems: []string{"d", "e", "f"}}
+
+	options := []any{
+		new(iterator),
+		krools.RuleNameMustNotContainsAny[*iterationContext]("never"),
+	}
+
+	if err := k.FireAllRules(context.Background(), c, options...); err != nil {
+		t.Fatal(err)
+	}
+
+	if c.count != 6 {
+		t.Fatalf("unexpected counter value %d", c.count)
+	}
+}
 
 type Fact struct {
 	Price int

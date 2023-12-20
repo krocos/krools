@@ -658,6 +658,183 @@ There is basic collection of filters:
 - `RuleNameMustContainsAny` – run only rules the name does contain any of passed substrings
 - `RunOnlyUnits` – run only rules that belongs to passed units
 
+## Execution dispatching
+
+When you call `FireAllRules()` you dispatch a single execution of krools. But
+what if you need to iterate over a number of items or handle stream of some data
+items? What if you need to preserve some parts of fire context between
+executions of engine (stateful session)?
+
+To be able to handle such cases krools have special interface `Dispatcher`
+```go
+type Executor[T any] func(ctx context.Context, fireContext T) error
+
+type Dispatcher[T any] interface {
+	Dispatch(ctx context.Context, fireContext T, fireAllRules Executor[T]) error
+}
+```
+
+So the type that implements `Dispatcher` interface will manage execution
+itself by calling `fireAllRules` function. This function starts execution of
+engine as usual, but now you can handle in what an order or when.
+
+For example, let's imagine that we want to iterate over some slice of items and
+preserve results of this work to inference further. Let's say it will be
+something like this: iterate over words and pick only those which are without
+letter A and then count those words. It will look like this:
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/krocos/krools"
+)
+
+type wordToProcess struct {
+	value string
+}
+
+type needToCount struct {
+	value bool
+}
+
+type fireContext struct {
+	// Incoming slice of words.
+	words []string
+
+	// word is the word we are working on every iteration.
+	word          *wordToProcess
+	wordsWithoutA []string
+
+	// needToCount is the sign if we need to count words without letter A.
+	needToCount *needToCount
+
+	count int
+}
+
+type iterationDispatcher struct{}
+
+func (i *iterationDispatcher) Dispatch(
+	ctx context.Context,
+	fireContext *fireContext,
+	fireAllRules krools.Executor[*fireContext],
+) error {
+	for _, word := range fireContext.words {
+
+		// Here we change only the word to process, but preserve all other data.
+		// And then we dispatch next execution.
+
+		fireContext.word = &wordToProcess{value: word}
+
+		if err := fireAllRules(ctx, fireContext); err != nil {
+			return err
+		}
+	}
+
+	// After iteration, we run rules that waits for needToCount directive.
+
+	fireContext.word = nil
+	fireContext.needToCount = &needToCount{value: true}
+
+	return fireAllRules(ctx, fireContext)
+}
+
+func main() {
+	k := krools.NewKnowledgeBase[*fireContext]("iterate over words").
+		Add(krools.NewRule[*fireContext](
+			"add the word without A",
+			// When
+			krools.ConditionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) (bool, error) {
+				return fireContext.word != nil && !strings.Contains(fireContext.word.value, "a"), nil
+			}),
+			// Then
+			krools.ActionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) error {
+				fireContext.wordsWithoutA = append(fireContext.wordsWithoutA, fireContext.word.value)
+				return nil
+			}),
+		)).
+		Add(krools.NewRule[*fireContext](
+			"count words without A",
+			// When
+			krools.ConditionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) (bool, error) {
+				return fireContext.needToCount != nil && fireContext.needToCount.value, nil
+			}),
+			// Then
+			krools.ActionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) error {
+				fireContext.count = len(fireContext.wordsWithoutA)
+				return nil
+			}),
+		))
+
+	c := &fireContext{words: []string{"implements", "interface", "order", "example", "imagine"}}
+
+	if err := k.FireAllRules(context.Background(), c, new(iterationDispatcher)); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(fmt.Sprintf("Number of words without A: %d", c.count))
+}
+```
+
+Take a look at how many rules you need to implement this. It's only two. Of
+course, you need dispatcher for this, but the code of it is trivial. You just
+replace parts of the fire context and preserve other parts.
+
+This example returns
+```text
+Number of words without A: 2
+
+```
+
+Also, you can use dispatcher to handle some streams or handle events, for example
+messages from queue.
+
+Just for example of this take a look at this dispatcher
+```go
+type streamDispatcher struct {
+	in  <-chan string
+	out chan *needProcessing
+}
+
+func newStreamDispatcher(in <-chan string) (*streamDispatcher, <-chan *needProcessing) {
+	d := &streamDispatcher{
+		in:  in,
+		out: make(chan *needProcessing),
+	}
+
+	return d, d.out
+}
+
+func (d *streamDispatcher) Dispatch(ctx context.Context, fireContext *streamContext, fireAllRules krools.Executor[*streamContext]) error {
+	defer close(d.out)
+
+	for s := range d.in {
+		fireContext.item = &streamItem{value: s}
+		fireContext.needSomeProcessing = nil
+
+		if err := fireAllRules(ctx, fireContext); err != nil {
+			return err
+		}
+
+		if fireContext.needSomeProcessing != nil {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case d.out <- fireContext.needSomeProcessing:
+			}
+		}
+	}
+
+	return nil
+}
+```
+
+It takes data from one channel, pass it to krools, and pass results on via other
+channel. It's event or stream processing.
+
 ## Compatibility with gospec
 
 You can use [gospec](https://github.com/krocos/gospec) composite specifications
