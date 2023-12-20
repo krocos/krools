@@ -403,6 +403,80 @@ k := krools.NewKnowledgeBase[*fireContext]("knowledge base").
 	AddUnit("unit", rule2.Insert().NoLoop())
 ```
 
+## Action stack
+
+You can write an action once and reuse it by stacking it with actions of other
+rules. For this particular reason krools have function `NewActionStack`. So you
+can add to your rule `ActionStack` instead of just an action.
+
+Just for illustration
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/krocos/krools"
+)
+
+type fireContext struct{}
+
+func main() {
+	logAction := krools.ActionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) error {
+		fmt.Println("==> log something from fire context")
+		return nil
+	})
+
+	ruleOne := krools.NewRule[*fireContext](
+		"rule one",
+		// When
+		nil,
+		// Then
+		krools.NewActionStack[*fireContext](
+			krools.ActionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) error {
+				fmt.Println("do the main work of rule one")
+				return nil
+			}),
+			logAction,
+		),
+	)
+
+	ruleTwo := krools.NewRule[*fireContext](
+		"rule two",
+		// When
+		nil,
+		// Then
+		krools.NewActionStack[*fireContext](
+			krools.ActionFn[*fireContext](func(ctx context.Context, fireContext *fireContext) error {
+				fmt.Println("do the main work of rule two")
+				return nil
+			}),
+			logAction,
+		),
+	)
+
+	k := krools.NewKnowledgeBase[*fireContext]("stacked actions").
+		Add(ruleOne).
+		Add(ruleTwo)
+
+	c := new(fireContext)
+
+	if err := k.FireAllRules(context.Background(), c); err != nil {
+		panic(err)
+	}
+}
+```
+
+This code returns
+```text
+do the main work of rule one
+==> log something from fire context
+do the main work of rule two
+==> log something from fire context
+
+```
+
 ## Flow of execution
 
 Rule have the attributes to be managed in a unit. But also rules can guide the
@@ -533,7 +607,7 @@ k := krools.NewKnowledgeBase[*fireContext]("knowledge base").
     AddUnit(krools.UnitMAIN, rule1).
     AddUnit("unit1", rule2).
     AddUnit("unit2", rule3.ActivateUnits("unit1", krools.UnitMAIN).
-        SetFocus("unit1", krools.UnitMAIN))
+    SetFocus("unit1", krools.UnitMAIN))
 
 ```
 
