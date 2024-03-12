@@ -943,7 +943,7 @@ word contains NOT A and longer than 4 letters
 
 ```
 
-## Example
+## Examples
 
 ### Bus pass card
 
@@ -1218,3 +1218,115 @@ Peter
         Nothing to do.
 
 ```
+
+### Universal conditions & actions
+
+To be able to use conditions & actions in multiple types of fire context you
+need to create an interface to work with:
+
+```go
+// wantedInterface is the interface we want our conditions & actions can work
+// with.
+type wantedInterface interface {
+	isContextSatisfiesSomeCondition() bool
+	updateSomeDataForExample(v string)
+}
+```
+
+And then we create generic conditions & actions those works with it like this:
+
+```go
+type desiredSpec[T wantedInterface] struct {
+	gospec.Spec[T]
+}
+
+func newDesiredSpec[T wantedInterface]() *desiredSpec[T] {
+	s := &desiredSpec[T]{}
+	s.Spec = gospec.New[T](s)
+	return s
+}
+
+func (s *desiredSpec[T]) IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error) {
+	return fireContext.isContextSatisfiesSomeCondition(), nil
+}
+
+//
+
+type desiredCondition[T wantedInterface] struct{}
+
+func newDesiredCondition[T wantedInterface]() *desiredCondition[T] {
+	return new(desiredCondition[T])
+}
+
+func (a *desiredCondition[T]) IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error) {
+	return fireContext.isContextSatisfiesSomeCondition(), nil
+}
+
+//
+
+type desiredAction[T wantedInterface] struct{}
+
+func newDesiredAction[T wantedInterface]() *desiredAction[T] {
+	return new(desiredAction[T])
+}
+
+func (a *desiredAction[T]) Execute(ctx context.Context, fireContext T) error {
+	fireContext.updateSomeDataForExample("some value here")
+	return nil
+}
+```
+
+And later we can use it with different types of fire context:
+
+```go
+type yourFireContext struct{}
+
+func (y *yourFireContext) isContextSatisfiesSomeCondition() bool {
+	return true
+}
+
+func (y *yourFireContext) updateSomeDataForExample(v string) {}
+
+type yourAnotherFireContext struct{}
+
+func (y *yourAnotherFireContext) isContextSatisfiesSomeCondition() bool {
+	return true
+}
+
+func (y *yourAnotherFireContext) updateSomeDataForExample(v string) {}
+
+func main() {
+	r1 := krools.NewRule[*yourFireContext](
+		"rule one",
+		newDesiredCondition[*yourFireContext](),
+		newDesiredAction[*yourFireContext](),
+	)
+
+	r2 := krools.NewRule[*yourAnotherFireContext](
+		"rule one",
+		newDesiredCondition[*yourAnotherFireContext](),
+		newDesiredAction[*yourAnotherFireContext](),
+	)
+
+	r3 := krools.NewRule[*yourFireContext](
+		"rule one",
+		newDesiredSpec[*yourFireContext]().Not(),
+		newDesiredAction[*yourFireContext](),
+	)
+
+	r4 := krools.NewRule[*yourAnotherFireContext](
+		"rule one",
+		newDesiredSpec[*yourAnotherFireContext]().Not(),
+		newDesiredAction[*yourAnotherFireContext](),
+	)
+
+	_ = krools.NewKnowledgeBase[*yourFireContext]("some name").
+		AddUnit("universal rules", r1, r3)
+
+	_ = krools.NewKnowledgeBase[*yourAnotherFireContext]("some name").
+		AddUnit("universal rules", r2, r4)
+}
+```
+
+And now you can reuse your conditions, specs, and actions in any of fire
+contexts that implements wanted interface.
