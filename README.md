@@ -1219,7 +1219,7 @@ Peter
 
 ```
 
-### Universal conditions & actions
+### Rules reusing
 
 To be able to use conditions & actions in multiple types of fire context you
 need to create an interface to work with:
@@ -1325,6 +1325,26 @@ func main() {
 
 	_ = krools.NewKnowledgeBase[*yourAnotherFireContext]("some name").
 		AddUnit("universal rules", r2, r4)
+}
+```
+
+Or you can create a rule constructor like this:
+
+```go
+func newGenericRule[T wantedInterface](name string) *krools.Rule[T] {
+	return krools.NewRule[T](name, newDesiredSpec[T]().Not(), newDesiredAction[T]())
+}
+```
+
+And later reuse it lke this:
+
+```go
+func main() {
+	r1 := newGenericRule[*yourFireContext]("rule one")
+	r2 := newGenericRule[*yourAnotherFireContext]("rule two")
+
+	_ = krools.NewKnowledgeBase[*yourFireContext]("some name").Add(r1)
+	_ = krools.NewKnowledgeBase[*yourAnotherFireContext]("some name").Add(r2)
 }
 ```
 
