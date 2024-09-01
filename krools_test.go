@@ -777,3 +777,47 @@ func TestSelfInsert(t *testing.T) {
 		t.Fatalf("unexpected counter: %d", c.counter)
 	}
 }
+
+type SomeTypeWeNeed struct{ V string }
+type AnotherTypeWeNeed struct{ V string }
+type ThirdTypeWeNeed struct{ V string }
+
+func TestContainer_FillIn_NotAllValsFiled(t *testing.T) {
+	c := krools.NewContainer()
+	va := &SomeTypeWeNeed{V: "a"}
+	vb := &AnotherTypeWeNeed{V: "b"}
+	//vc := &ThirdTypeWeNeed{V: "c"}
+	c.Insert(&va, &vb)
+
+	var (
+		s  = new(SomeTypeWeNeed)
+		a  = new(AnotherTypeWeNeed)
+		th = new(ThirdTypeWeNeed)
+	)
+
+	if c.FillIn(s, a, th) != false {
+		t.Fail()
+	}
+}
+
+func TestContainer_FillIn_AllValsFiled(t *testing.T) {
+	c := krools.NewContainer()
+	va := &SomeTypeWeNeed{V: "a"}
+	vb := &AnotherTypeWeNeed{V: "b"}
+	vc := &ThirdTypeWeNeed{V: "c"}
+	c.Insert(&va, &vb, &vc)
+
+	var (
+		s  = new(SomeTypeWeNeed)
+		a  = new(AnotherTypeWeNeed)
+		th = new(ThirdTypeWeNeed)
+	)
+
+	if c.FillIn(s, a, th) != true {
+		t.Fail()
+	}
+
+	if th.V != "c" {
+		t.Fail()
+	}
+}

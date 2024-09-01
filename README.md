@@ -48,6 +48,19 @@ can use it like you want.
 When engine works you have access to the fire context from conditions and
 actions to examine data passed from outside and create data from actions.
 
+### Container (just the experiment)
+
+You can use `Container` to automate the process of loading valuable variables from context. You can embed container into
+your fire context or create a field within of `Container` type. Container have a few methods:
+- `Insert` – it inserts any number of arguments into container. Arguments must be of struct type or a pointer to struct
+  type, or a pointer to a pointer. If any argument is no struct method panics.
+- `Retract` – finds all passed variables type path and drop them from a container.
+- `FillIn` – fills in passed variables with respective values from container. All passed values must be a pointers to
+  instantiated structs. Method returns `bool` sign of that are all passed variables was filled... Method panics if one of
+  args is not a pointer to struct or a pointer to a pointer to a struct and so on.
+
+So, it automates receiving a few sign-variable for rules and to retrieve variables after the engine done.
+
 ## Rule
 
 Rule consists from three parts: name, condition (when part), and action (then
