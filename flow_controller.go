@@ -2,22 +2,22 @@ package krools
 
 const preStartPos int = -1
 
-type flowController[T any] struct {
+type flowController struct {
 	ret        *retracting
-	units      map[string][]*Rule[T]
+	units      map[string][]*RuleHandle
 	unitsOrder []string
 
 	pos      int
 	resetPos bool
 }
 
-func newFlowController[T any](
+func newFlowController(
 	ret *retracting,
-	units map[string][]*Rule[T],
+	units map[string][]*RuleHandle,
 	unitsOrder []string,
 	deactivatedUnits []string,
-) *flowController[T] {
-	c := &flowController[T]{
+) *flowController {
+	c := &flowController{
 		ret:        ret,
 		units:      units,
 		unitsOrder: unitsOrder,
@@ -29,15 +29,15 @@ func newFlowController[T any](
 	return c
 }
 
-func (c *flowController[T]) activateUnits(units ...string) {
+func (c *flowController) activateUnits(units ...string) {
 	c.ret.reject(c.unitsRuleNames(units...)...)
 }
 
-func (c *flowController[T]) deactivateUnits(units ...string) {
+func (c *flowController) deactivateUnits(units ...string) {
 	c.ret.add(c.unitsRuleNames(units...)...)
 }
 
-func (c *flowController[T]) unitsRuleNames(units ...string) []string {
+func (c *flowController) unitsRuleNames(units ...string) []string {
 	var ruleNames []string
 
 	for _, u := range units {
@@ -49,7 +49,7 @@ func (c *flowController[T]) unitsRuleNames(units ...string) []string {
 	return ruleNames
 }
 
-func (c *flowController[T]) setFocus(units ...string) {
+func (c *flowController) setFocus(units ...string) {
 	c.unitsOrder = uniq(append(units, c.unitsOrder...))
 
 	if len(units) > 0 {
@@ -57,11 +57,11 @@ func (c *flowController[T]) setFocus(units ...string) {
 	}
 }
 
-func (c *flowController[T]) rules() []*Rule[T] {
+func (c *flowController) rules() []*RuleHandle {
 	return c.units[c.unitsOrder[c.pos]]
 }
 
-func (c *flowController[T]) more() bool {
+func (c *flowController) more() bool {
 	if c.resetPos {
 		c.pos = preStartPos
 		c.resetPos = false

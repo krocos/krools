@@ -5,6 +5,12 @@ Simple yet powerful rules engine for software engineers.
 krools execute rules against your data to inference new data and/or guide a
 process. It is of passive and forward chaining type.
 
+## Docs for v2
+
+Doc is still progress. But to use engine module you need to import `github.com/krocos/krools/v2` path.
+
+## Docs for v1
+
 ## Knowledge base
 
 Knowledge base contains rules you will apply against your data.

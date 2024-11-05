@@ -6,26 +6,36 @@ import (
 	"strings"
 )
 
-func RuleNameStartsWith[T any](prefix string) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+type Filter interface {
+	IsSatisfiedBy(ctx context.Context, rule *RuleHandle) (bool, error)
+}
+
+type FilterFn func(ctx context.Context, rule *RuleHandle) (bool, error)
+
+func (f FilterFn) IsSatisfiedBy(ctx context.Context, rule *RuleHandle) (bool, error) {
+	return f(ctx, rule)
+}
+
+func RuleNameStartsWith(prefix string) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		return strings.HasPrefix(rule.name, prefix), nil
 	})
 }
 
-func RuleNameEndsWith[T any](suffix string) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+func RuleNameEndsWith(suffix string) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		return strings.HasSuffix(rule.name, suffix), nil
 	})
 }
 
-func RuleNameMatchRegexp[T any](exp *regexp.Regexp) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+func RuleNameMatchRegexp(exp *regexp.Regexp) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		return exp.MatchString(rule.name), nil
 	})
 }
 
-func RuleNameMustNotContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+func RuleNameMustNotContainsAny(substrings ...string) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		if len(substrings) > 0 {
 			for _, substring := range substrings {
 				if strings.Contains(rule.name, substring) {
@@ -38,8 +48,8 @@ func RuleNameMustNotContainsAny[T any](substrings ...string) Condition[*Rule[T]]
 	})
 }
 
-func RuleNameMustContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+func RuleNameMustContainsAny(substrings ...string) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		if len(substrings) > 0 {
 			for _, substring := range substrings {
 				if strings.Contains(rule.name, substring) {
@@ -54,8 +64,8 @@ func RuleNameMustContainsAny[T any](substrings ...string) Condition[*Rule[T]] {
 	})
 }
 
-func RunOnlyUnits[T any](units ...string) Condition[*Rule[T]] {
-	return ConditionFn[*Rule[T]](func(ctx context.Context, rule *Rule[T]) (bool, error) {
+func RunOnlyUnits(units ...string) Filter {
+	return FilterFn(func(ctx context.Context, rule *RuleHandle) (bool, error) {
 		if len(units) > 0 {
 			return contains(units, rule.unit), nil
 		}

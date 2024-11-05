@@ -1,20 +1,16 @@
 package krools
 
-import (
-	"context"
-)
-
-type ActionStack[T any] struct {
-	actions []Action[T]
+type ActionStack struct {
+	actions []Action
 }
 
-func NewActionStack[T any](actions ...Action[T]) *ActionStack[T] {
-	return &ActionStack[T]{actions: actions}
+func NewActionStack(actions ...Action) *ActionStack {
+	return &ActionStack{actions: actions}
 }
 
-func (s *ActionStack[T]) Execute(ctx context.Context, fireContext T) error {
+func (s *ActionStack) Then(ctx Context) error {
 	for _, action := range s.actions {
-		if err := action.Execute(ctx, fireContext); err != nil {
+		if err := action.Then(ctx); err != nil {
 			return err
 		}
 	}

@@ -1,10 +1,23 @@
 package krools
 
-type Rule[T any] struct {
+type Rule interface {
+	Condition
+	Action
+}
+
+type Condition interface {
+	When(ctx Context) (bool, error)
+}
+
+type Action interface {
+	Then(ctx Context) error
+}
+
+type RuleHandle struct {
 	name           string
 	salience       int
-	condition      Condition[T]
-	action         Action[T]
+	condition      Condition
+	action         Action
 	retracts       []string
 	inserts        []string
 	unit           string
@@ -14,25 +27,72 @@ type Rule[T any] struct {
 	deactivateUnits []string
 	activateUnits   []string
 	focusUnits      []string
+
+	locals *structTypeContainer
 }
 
-func NewRule[T any](name string, condition Condition[T], action Action[T]) *Rule[T] {
-	return &Rule[T]{
+func NewRule(name string, rule Rule) *RuleHandle {
+	return newRule(name, rule, rule)
+}
+
+func newRule(name string, condition Condition, action Action) *RuleHandle {
+	return &RuleHandle{
 		name:      name,
 		condition: condition,
 		action:    action,
-		retracts:  []string{name},
+		retracts:  make([]string, 0),
 		unit:      UnitMAIN,
 	}
 }
 
-func (r *Rule[T]) NoLoop() *Rule[T] {
+func NewInlineRule(name string, condition ConditionFn, action ActionFn) *RuleHandle {
+	return newRule(name, condition, action)
+}
+
+func copyRule(rule *RuleHandle) *RuleHandle {
+	nr := &RuleHandle{
+		name:            rule.name,
+		salience:        rule.salience,
+		condition:       rule.condition,
+		action:          rule.action,
+		retracts:        make([]string, len(rule.retracts)),
+		inserts:         make([]string, len(rule.inserts)),
+		unit:            rule.unit,
+		activationUnit:  rule.activationUnit,
+		noLoop:          rule.noLoop,
+		deactivateUnits: make([]string, len(rule.deactivateUnits)),
+		activateUnits:   make([]string, len(rule.activateUnits)),
+		focusUnits:      make([]string, len(rule.focusUnits)),
+	}
+
+	copy(nr.retracts, rule.retracts)
+	copy(nr.inserts, rule.inserts)
+
+	copy(nr.deactivateUnits, rule.deactivateUnits)
+	copy(nr.activateUnits, rule.activateUnits)
+	copy(nr.focusUnits, rule.focusUnits)
+
+	nr.locals = newStructTypeContainer()
+
+	return nr
+}
+
+func copySliceOfRules(rr []*RuleHandle) []*RuleHandle {
+	ns := make([]*RuleHandle, len(rr))
+	for i, r := range rr {
+		ns[i] = copyRule(r)
+	}
+
+	return ns
+}
+
+func (r *RuleHandle) NoLoop() *RuleHandle {
 	r.noLoop = true
 
 	return r
 }
 
-func (r *Rule[T]) Retract(rules ...string) *Rule[T] {
+func (r *RuleHandle) Deactivate(rules ...string) *RuleHandle {
 	if len(rules) == 0 {
 		rules = append(rules, r.name)
 	}
@@ -42,7 +102,7 @@ func (r *Rule[T]) Retract(rules ...string) *Rule[T] {
 	return r
 }
 
-func (r *Rule[T]) Insert(rules ...string) *Rule[T] {
+func (r *RuleHandle) Activate(rules ...string) *RuleHandle {
 	if len(rules) == 0 {
 		rules = append(rules, r.name)
 	}
@@ -52,37 +112,37 @@ func (r *Rule[T]) Insert(rules ...string) *Rule[T] {
 	return r
 }
 
-func (r *Rule[T]) Unit(unit string) *Rule[T] {
+func (r *RuleHandle) Unit(unit string) *RuleHandle {
 	r.unit = unit
 
 	return r
 }
 
-func (r *Rule[T]) ActivationUnit(activationUnit string) *Rule[T] {
+func (r *RuleHandle) ActivationUnit(activationUnit string) *RuleHandle {
 	r.activationUnit = &activationUnit
 
 	return r
 }
 
-func (r *Rule[T]) DeactivateUnits(units ...string) *Rule[T] {
+func (r *RuleHandle) DeactivateUnits(units ...string) *RuleHandle {
 	r.deactivateUnits = uniq(append(r.deactivateUnits, units...))
 
 	return r
 }
 
-func (r *Rule[T]) ActivateUnits(units ...string) *Rule[T] {
+func (r *RuleHandle) ActivateUnits(units ...string) *RuleHandle {
 	r.activateUnits = uniq(append(r.activateUnits, units...))
 
 	return r
 }
 
-func (r *Rule[T]) SetFocus(units ...string) *Rule[T] {
+func (r *RuleHandle) SetFocus(units ...string) *RuleHandle {
 	r.focusUnits = uniq(append(r.focusUnits, units...))
 
 	return r
 }
 
-func (r *Rule[T]) Salience(salience int) *Rule[T] {
+func (r *RuleHandle) Salience(salience int) *RuleHandle {
 	r.salience = salience
 
 	return r

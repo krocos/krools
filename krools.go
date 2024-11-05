@@ -8,27 +8,32 @@ import (
 
 const UnitMAIN = "MAIN"
 
-type (
-	Action[T any] interface {
-		Execute(ctx context.Context, fireContext T) error
-	}
-	Condition[T any] interface {
-		IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error)
-	}
-)
+type Context interface {
+	Context() context.Context
 
-type ActionFn[T any] func(ctx context.Context, fireContext T) error
+	Set(v any)
+	Get(v any) bool
+	Handle(v any) any
+	HasNot(v any) bool
+	Delete(v any)
 
-func (f ActionFn[T]) Execute(ctx context.Context, fireContext T) error { return f(ctx, fireContext) }
-
-type ConditionFn[T any] func(ctx context.Context, fireContext T) (bool, error)
-
-func (f ConditionFn[T]) IsSatisfiedBy(ctx context.Context, fireContext T) (bool, error) {
-	return f(ctx, fireContext)
+	SetLocal(v any)
+	GetLocal(v any) bool
+	LocalHandle(v any) any
+	HasNotLocal(v any) bool
+	DeleteLocal(v any)
 }
 
-func sortRulesConsiderSalience[T any](rules []*Rule[T]) {
-	slices.SortFunc(rules, func(a, b *Rule[T]) int {
+type ActionFn func(ctx Context) error
+
+func (f ActionFn) Then(ctx Context) error { return f(ctx) }
+
+type ConditionFn func(ctx Context) (bool, error)
+
+func (f ConditionFn) When(ctx Context) (bool, error) { return f(ctx) }
+
+func sortRulesConsiderSalience(rules []*RuleHandle) {
+	slices.SortFunc(rules, func(a, b *RuleHandle) int {
 		return cmp.Compare(a.salience, b.salience) * -1
 	})
 }
